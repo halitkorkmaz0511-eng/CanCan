@@ -1,0 +1,1073 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cancan — 2D Strateji</title>
+  <style>
+    :root {
+      --bg-from: #0f0c29;
+      --bg-mid:  #302b63;
+      --bg-to:   #24243e;
+      --surface: rgba(255,255,255,0.06);
+      --surface-border: rgba(255,255,255,0.12);
+      --ink: #f1f5f9;
+      --ink-muted: #94a3b8;
+      --blue: #3b82f6;
+      --blue-glow: rgba(59,130,246,0.35);
+      --red: #ef4444;
+      --red-glow: rgba(239,68,68,0.35);
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --tile-light: #1e293b;
+      --tile-dark:  #0f172a;
+      --radius-lg: 20px;
+      --radius-md: 12px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      font-family: "Inter", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: linear-gradient(135deg, var(--bg-from), var(--bg-mid), var(--bg-to));
+      display: grid;
+      place-items: center;
+      padding: 24px 16px;
+    }
+
+    .game-shell {
+      width: min(1040px, 100%);
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 20px;
+      animation: rise 500ms ease both;
+    }
+
+    .board-wrap,
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    }
+
+    .board-wrap {
+      padding: 18px;
+    }
+
+    .panel {
+      padding: 22px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .game-title {
+      font-size: 1.1rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+      margin-bottom: 12px;
+    }
+
+    #gameCanvas {
+      width: 100%;
+      height: auto;
+      border-radius: var(--radius-md);
+      display: block;
+      border: 1px solid var(--surface-border);
+      touch-action: manipulation;
+    }
+
+    .menu-overlay {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(2, 6, 23, 0.72);
+      backdrop-filter: blur(16px);
+      z-index: 20;
+      padding: 24px;
+    }
+
+    .menu-overlay.hidden {
+      display: none;
+    }
+
+    .menu-card {
+      width: min(540px, 100%);
+      border-radius: 24px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: linear-gradient(180deg, rgba(15,23,42,0.94), rgba(30,41,59,0.92));
+      box-shadow: 0 30px 90px rgba(0,0,0,0.55);
+      padding: 28px;
+      text-align: center;
+      animation: rise 420ms ease both;
+    }
+
+    .menu-kicker {
+      font-size: 0.78rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 10px;
+    }
+
+    .menu-title {
+      font-size: clamp(2rem, 5vw, 3.4rem);
+      font-weight: 900;
+      line-height: 1;
+      margin-bottom: 12px;
+      background: linear-gradient(90deg, #60a5fa, #a78bfa, #f472b6);
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+
+    .menu-subtitle {
+      color: #cbd5e1;
+      line-height: 1.6;
+      margin-bottom: 18px;
+    }
+
+    .menu-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .button-secondary {
+      background: linear-gradient(135deg, #1e293b, #334155);
+      color: #e2e8f0;
+      box-shadow: 0 4px 16px rgba(15,23,42,0.28);
+    }
+
+    .button-secondary:hover {
+      box-shadow: 0 8px 24px rgba(15,23,42,0.38);
+    }
+
+    /* --- panel içi --- */
+    .panel-title {
+      font-size: 1.5rem;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      margin-bottom: 18px;
+      background: linear-gradient(90deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .turn-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .turn-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 14px;
+      border-radius: 999px;
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.82rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      box-shadow: 0 0 14px var(--badge-glow, transparent);
+      transition: box-shadow 300ms;
+    }
+
+    .p1 { background: var(--blue);  --badge-glow: var(--blue-glow); }
+    .p2 { background: var(--red);   --badge-glow: var(--red-glow); }
+
+    #infoText {
+      font-size: 0.9rem;
+      color: var(--ink);
+      min-height: 2.4em;
+      line-height: 1.5;
+      margin-bottom: 10px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.04);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--surface-border);
+    }
+
+    .stat-block {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .stat-card {
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--surface-border);
+      background: rgba(255,255,255,0.04);
+    }
+
+    .stat-card.blue-card { border-color: rgba(59,130,246,0.4); }
+    .stat-card.red-card  { border-color: rgba(239,68,68,0.4); }
+
+    .stat-name {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .stat-card.blue-card .stat-name { color: #60a5fa; }
+    .stat-card.red-card  .stat-name { color: #f87171; }
+
+    .stat-hp {
+      font-size: 1.25rem;
+      font-weight: 900;
+    }
+
+    .stat-hp-bar {
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 99px;
+      margin: 4px 0 6px;
+      overflow: hidden;
+    }
+
+    .stat-hp-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 300ms ease;
+    }
+
+    .blue-card .stat-hp-fill { background: var(--blue); }
+    .red-card  .stat-hp-fill { background: var(--red); }
+
+    .stat-powers {
+      font-size: 0.78rem;
+      color: var(--ink-muted);
+    }
+
+    .power-pip {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: rgba(245,158,11,0.2);
+      color: var(--amber);
+      font-weight: 700;
+      font-size: 0.72rem;
+      margin-right: 3px;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--surface-border);
+      margin: 14px 0;
+    }
+
+    .btns {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    button {
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 10px 18px;
+      background: linear-gradient(135deg, #93c5fd, #c4b5fd);
+      color: #0f172a;
+      font-weight: 800;
+      font-size: 0.85rem;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(59,130,246,0.3);
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(59,130,246,0.45);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .hint {
+      font-size: 0.78rem;
+      color: var(--ink-muted);
+      line-height: 1.65;
+    }
+
+    .hint strong {
+      color: var(--amber);
+      font-weight: 700;
+    }
+
+    @keyframes rise {
+      from { transform: translateY(12px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    @media (max-width: 860px) {
+      .game-shell { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-shell">
+    <section class="board-wrap">
+      <div class="game-title">Cancan &mdash; 2D Strateji</div>
+      <canvas id="gameCanvas" width="640" height="640"></canvas>
+    </section>
+
+    <aside class="panel">
+      <div class="panel-title">Cancan</div>
+
+      <div class="turn-row">
+        <span class="turn-label">Sıra:</span>
+        <span id="turnBadge" class="badge p1">Mavi</span>
+      </div>
+
+      <div id="infoText">Oyununu seç ve yeşil karelere hareket et.</div>
+      <div id="statusText" style="margin-top:8px;color:#94a3b8;font-size:0.78rem;">Oyun hazır değil.</div>
+
+      <div class="stat-block" id="statBlock">
+        <div class="stat-card blue-card">
+          <div class="stat-name">Mavi</div>
+          <div class="stat-hp" id="p1hp">6</div>
+          <div class="stat-hp-bar"><div class="stat-hp-fill" id="p1bar" style="width:100%"></div></div>
+          <div class="stat-powers" id="p1powers">Güç yok</div>
+        </div>
+        <div class="stat-card red-card">
+          <div class="stat-name">Kırmızı</div>
+          <div class="stat-hp" id="p2hp">6</div>
+          <div class="stat-hp-bar"><div class="stat-hp-fill" id="p2bar" style="width:100%"></div></div>
+          <div class="stat-powers" id="p2powers">Güç yok</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="btns">
+        <button id="pauseBtn" class="button-secondary">Duraklat</button>
+        <button id="resetBtn">Yeniden Başlat</button>
+      </div>
+
+      <div class="hint">
+        <strong>⚡ H</strong> Hız — 2 kare hareket<br>
+        <strong>✦ Ç</strong> Çapraz — çapraz yönler açılır<br>
+        <strong>↑ A</strong> Atlama — engel aşma<br><br>
+        <strong>🛡 Kalkan</strong> — bir ölümcül darbeyi engeller<br>
+        <strong>＋ İyileşme</strong> — can yeniler<br><br>
+        Rakibin karesine adım at → rakip ölür.
+      </div>
+    </aside>
+  </div>
+
+  <div class="menu-overlay" id="menuOverlay">
+    <div class="menu-card">
+      <div class="menu-kicker">Yeni 2D Strateji Oyunu</div>
+      <div class="menu-title">Cancan</div>
+      <div class="menu-subtitle">
+        10x10 haritada Mavi ve Kırmızı çarpışır.<br>
+        Güçleri topla, tuzaklardan kaç ve rakibinin karesine basarak kazan.
+      </div>
+      <div class="menu-actions">
+        <button id="startBtn">Oyunu Başlat</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const turnBadge = document.getElementById("turnBadge");
+    const infoText = document.getElementById("infoText");
+    const statusText = document.getElementById("statusText");
+    const menuOverlay = document.getElementById("menuOverlay");
+    const startBtn = document.getElementById("startBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const resetBtn = document.getElementById("resetBtn");
+
+    const GRID = 10;
+    const TILE = canvas.width / GRID;
+    const OBSTACLE_COUNT = 14;
+    const POWERUP_TYPES = ["speed", "diagonal", "jump", "shield", "heal"];
+    const MAX_HP = 6;
+
+    let game = null;
+    let lastFrameTime = 0;
+
+    const POWERUP_META = {
+      speed:    { color: "#38bdf8", glow: "rgba(56,189,248,0.55)",  symbol: "⚡", label: "Hız" },
+      diagonal: { color: "#a78bfa", glow: "rgba(167,139,250,0.55)", symbol: "✦", label: "Çapraz" },
+      jump:     { color: "#4ade80", glow: "rgba(74,222,128,0.55)",  symbol: "↑", label: "Atlama" },
+      shield:   { color: "#f59e0b", glow: "rgba(245,158,11,0.55)",   symbol: "🛡", label: "Kalkan" },
+      heal:     { color: "#fb7185", glow: "rgba(251,113,133,0.55)",  symbol: "＋", label: "İyileşme" }
+    };
+
+    const OBSTACLE_META = {
+      wall: { color: "#64748b", label: "Duvar" },
+      trap: { color: "#ef4444", label: "Tuzak" }
+    };
+
+    function randomInt(max) {
+      return Math.floor(Math.random() * max);
+    }
+
+    function key(x, y) {
+      return `${x},${y}`;
+    }
+
+    function inBounds(x, y) {
+      return x >= 0 && y >= 0 && x < GRID && y < GRID;
+    }
+
+    function teamColor(team) {
+      return team === 1 ? "#2563eb" : "#dc2626";
+    }
+
+    function tileColor(x, y) {
+      return (x + y) % 2 === 0 ? "#f1f5f9" : "#dbe4ee";
+    }
+
+    function playerByTeam(team) {
+      return game.players.find(p => p.team === team) || null;
+    }
+
+    function currentPlayer() {
+      return playerByTeam(game.turn);
+    }
+
+    function enemyPlayer() {
+      return game.players.find(p => p.team !== game.turn) || null;
+    }
+
+    function getPlayerAt(x, y) {
+      return game.players.find(p => p.x === x && p.y === y);
+    }
+
+    function getObstacleAt(x, y) {
+      return game.obstacles.find(obstacle => obstacle.x === x && obstacle.y === y) || null;
+    }
+
+    function isAdjacent(a, b) {
+      const dx = Math.abs(a.x - b.x);
+      const dy = Math.abs(a.y - b.y);
+      return Math.max(dx, dy) === 1;
+    }
+
+    function moveRange(player) {
+      return player.powers.speed ? 2 : 1;
+    }
+
+    function canUseDiagonal(player) {
+      return player.powers.diagonal;
+    }
+
+    function canJump(player) {
+      return player.powers.jump;
+    }
+
+    function lineIntersectsObstacle(fromX, fromY, toX, toY) {
+      const steps = Math.max(Math.abs(toX - fromX), Math.abs(toY - fromY));
+      if (steps <= 1) {
+        return false;
+      }
+
+      const stepX = (toX - fromX) / steps;
+      const stepY = (toY - fromY) / steps;
+
+      for (let i = 1; i < steps; i++) {
+        const x = fromX + stepX * i;
+        const y = fromY + stepY * i;
+        const obstacle = getObstacleAt(x, y);
+        if (obstacle && obstacle.type === "wall") {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    function isValidMoveTarget(player, targetX, targetY, dx, dy, range) {
+      if (!inBounds(targetX, targetY)) {
+        return false;
+      }
+
+      const distance = Math.max(Math.abs(dx), Math.abs(dy));
+      if (distance > range) {
+        return false;
+      }
+
+      const isDiagonalStep = dx !== 0 && dy !== 0;
+      if (isDiagonalStep && !canUseDiagonal(player)) {
+        return false;
+      }
+
+      const obstacle = getObstacleAt(targetX, targetY);
+      if (obstacle && obstacle.type === "wall") {
+        return false;
+      }
+
+      const occupant = getPlayerAt(targetX, targetY);
+      if (occupant && occupant.team === player.team) {
+        return false;
+      }
+
+      if (!canJump(player) && lineIntersectsObstacle(player.x, player.y, targetX, targetY)) {
+        return false;
+      }
+
+      return true;
+    }
+
+    function movableTiles(player) {
+      const range = moveRange(player);
+      const tiles = [];
+
+      for (let dy = -range; dy <= range; dy++) {
+        for (let dx = -range; dx <= range; dx++) {
+          if (dx === 0 && dy === 0) {
+            continue;
+          }
+
+          const targetX = player.x + dx;
+          const targetY = player.y + dy;
+          if (isValidMoveTarget(player, targetX, targetY, dx, dy, range)) {
+            tiles.push({ x: targetX, y: targetY });
+          }
+        }
+      }
+
+      return tiles;
+    }
+
+    function obstacleOccupied(state, x, y) {
+      return state.obstacles.some(obstacle => obstacle.x === x && obstacle.y === y);
+    }
+
+    function placeObstacles(state) {
+      const targets = { wall: 10, trap: 4 };
+      while (
+        state.obstacles.filter(obstacle => obstacle.type === "wall").length < targets.wall ||
+        state.obstacles.filter(obstacle => obstacle.type === "trap").length < targets.trap
+      ) {
+        const x = randomInt(GRID);
+        const y = randomInt(GRID);
+        const occupiedByPlayer = state.players.some(p => p.x === x && p.y === y);
+        if (occupiedByPlayer || obstacleOccupied(state, x, y)) {
+          continue;
+        }
+
+        const wallCount = state.obstacles.filter(obstacle => obstacle.type === "wall").length;
+        const trapCount = state.obstacles.filter(obstacle => obstacle.type === "trap").length;
+        let type = "wall";
+        if (wallCount >= targets.wall && trapCount < targets.trap) {
+          type = "trap";
+        }
+        state.obstacles.push({ x, y, type });
+      }
+    }
+
+    function placePowerups(state) {
+      const placed = [];
+      for (const type of POWERUP_TYPES) {
+        let x = 0;
+        let y = 0;
+        let ok = false;
+        while (!ok) {
+          x = randomInt(GRID);
+          y = randomInt(GRID);
+          const blocked = obstacleOccupied(state, x, y);
+          const occupiedByPlayer = state.players.some(p => p.x === x && p.y === y);
+          const alreadyUsed = placed.some(p => p.x === x && p.y === y);
+          ok = !blocked && !occupiedByPlayer && !alreadyUsed;
+        }
+        placed.push({ type, x, y });
+      }
+      state.powerups = placed;
+    }
+
+    function newGameState() {
+      const state = {
+        turn: 1,
+        started: false,
+        paused: false,
+        players: [
+          {
+            id: "p1",
+            name: "Mavi",
+            team: 1,
+            x: 0,
+            y: 0,
+            hp: MAX_HP,
+            moved: false,
+            powers: { speed: false, diagonal: false, jump: false, shield: false }
+          },
+          {
+            id: "p2",
+            name: "Kirmizi",
+            team: 2,
+            x: GRID - 1,
+            y: GRID - 1,
+            hp: MAX_HP,
+            moved: false,
+            powers: { speed: false, diagonal: false, jump: false, shield: false }
+          }
+        ],
+        obstacles: [],
+        powerups: [],
+        effect: null
+      };
+
+      placeObstacles(state);
+      placePowerups(state);
+      return state;
+    }
+
+    function powerSummaryHTML(player) {
+      const pips = [];
+      if (player.powers.speed)    { pips.push("<span class='power-pip'>⚡ Hız</span>"); }
+      if (player.powers.diagonal) { pips.push("<span class='power-pip'>✦ Çapraz</span>"); }
+      if (player.powers.jump)     { pips.push("<span class='power-pip'>↑ Atlama</span>"); }
+      if (player.powers.shield)   { pips.push("<span class='power-pip'>🛡 Kalkan</span>"); }
+      return pips.length ? pips.join("") : "<span style='color:#94a3b8'>Güç yok</span>";
+    }
+
+    function updatePowerupLegend() {
+      const hint = document.querySelector(".hint");
+      if (!hint) {
+        return;
+      }
+
+      hint.innerHTML = `
+        <strong>⚡ H</strong> Hız — 2 kare hareket<br>
+        <strong>✦ Ç</strong> Çapraz — çapraz yönler açılır<br>
+        <strong>↑ A</strong> Atlama — engel aşma<br>
+        <strong>🛡 K</strong> Kalkan — bir ölümcül darbeyi engeller<br>
+        <strong>＋ İ</strong> İyileşme — can yeniler<br><br>
+        Rakibin karesine adım at → rakip ölür.
+      `;
+    }
+
+    function createEffect(kind, x, y, color) {
+      game.effect = { kind, x, y, life: 0.55, color };
+    }
+
+    function updateEffect(dt) {
+      if (!game.effect) {
+        return;
+      }
+
+      game.effect.life -= dt;
+      if (game.effect.life <= 0) {
+        game.effect = null;
+      }
+    }
+
+    function drawEffect() {
+      if (!game.effect) {
+        return;
+      }
+
+      const effect = game.effect;
+      const cx = effect.x * TILE + TILE / 2;
+      const cy = effect.y * TILE + TILE / 2;
+      const progress = Math.max(0, 1 - (effect.life / 0.55));
+      const radius = TILE * (0.25 + progress * 0.55);
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = effect.color;
+      ctx.lineWidth = 4 + progress * 4;
+      ctx.globalAlpha = 0.9 - progress * 0.7;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function isPlayerOnTrap(player) {
+      const obstacle = getObstacleAt(player.x, player.y);
+      if (!obstacle || obstacle.type !== "trap") {
+        return false;
+      }
+
+      game.obstacles = game.obstacles.filter(item => !(item.x === obstacle.x && item.y === obstacle.y));
+      player.hp -= 1;
+      createEffect("trap", player.x, player.y, OBSTACLE_META.trap.color);
+      return true;
+    }
+
+    function consumePowerup(player) {
+      const idx = game.powerups.findIndex(p => p.x === player.x && p.y === player.y);
+      if (idx === -1) {
+        return;
+      }
+
+      const picked = game.powerups[idx];
+      game.powerups.splice(idx, 1);
+
+      if (picked.type === "heal") {
+        player.hp = Math.min(MAX_HP, player.hp + 2);
+        infoText.textContent = `${player.name} iyileşme aldı! Canı yenilendi.`;
+        createEffect("heal", player.x, player.y, POWERUP_META.heal.color);
+        return;
+      }
+
+      player.powers[picked.type] = true;
+      createEffect("powerup", player.x, player.y, POWERUP_META[picked.type].color);
+
+      if (picked.type === "speed") {
+        infoText.textContent = `${player.name} hız gücünü aldı! Artık 2 kare hareket eder.`;
+      } else if (picked.type === "diagonal") {
+        infoText.textContent = `${player.name} çapraz hareket gücünü aldı!`;
+      } else if (picked.type === "jump") {
+        infoText.textContent = `${player.name} atlama gücünü aldı! Engellerin üzerinden geçebilir.`;
+      } else if (picked.type === "shield") {
+        infoText.textContent = `${player.name} kalkan gücünü aldı! Bir ölümcül darbeyi engeller.`;
+      }
+    }
+
+    function resolveAttack() {
+      // Ölüm: rakibin karesine basılınca gerçekleşir (click handler'da kontrol edilir)
+    }
+
+    function isGameOver() {
+      return game.players.some(p => p.hp <= 0);
+    }
+
+    function winnerName() {
+      const alive = game.players.find(p => p.hp > 0);
+      return alive ? alive.name : "Berabere";
+    }
+
+    function drawBoard() {
+      for (let y = 0; y < GRID; y++) {
+        for (let x = 0; x < GRID; x++) {
+          ctx.fillStyle = tileColor(x, y);
+          ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+        }
+      }
+
+      for (const obstacle of game.obstacles) {
+        if (obstacle.type === "wall") {
+          ctx.fillStyle = OBSTACLE_META.wall.color;
+          ctx.fillRect(obstacle.x * TILE + 6, obstacle.y * TILE + 6, TILE - 12, TILE - 12);
+          ctx.fillStyle = "rgba(255,255,255,0.12)";
+          ctx.fillRect(obstacle.x * TILE + 10, obstacle.y * TILE + 10, TILE - 20, 4);
+          continue;
+        }
+
+        const cx = obstacle.x * TILE + TILE / 2;
+        const cy = obstacle.y * TILE + TILE / 2;
+        ctx.beginPath();
+        ctx.fillStyle = "rgba(239,68,68,0.18)";
+        ctx.arc(cx, cy, TILE * 0.24, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.strokeStyle = OBSTACLE_META.trap.color;
+        ctx.lineWidth = 3;
+        ctx.arc(cx, cy, TILE * 0.18, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx - TILE * 0.12, cy - TILE * 0.12);
+        ctx.lineTo(cx + TILE * 0.12, cy + TILE * 0.12);
+        ctx.moveTo(cx + TILE * 0.12, cy - TILE * 0.12);
+        ctx.lineTo(cx - TILE * 0.12, cy + TILE * 0.12);
+        ctx.stroke();
+      }
+
+      for (const p of game.powerups) {
+        const cx = p.x * TILE + TILE / 2;
+        const cy = p.y * TILE + TILE / 2;
+        const r  = TILE * 0.3;
+
+        const meta = POWERUP_META[p.type];
+
+        // Dış parıltı (glow)
+        const glowGrad = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 1.6);
+        glowGrad.addColorStop(0, meta.glow);
+        glowGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 1.6, 0, Math.PI * 2);
+        ctx.fillStyle = glowGrad;
+        ctx.fill();
+
+        // Döndürülmüş kare (elmas şekli)
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(Math.PI / 4);
+        const s = r * 0.88;
+        const borderRadius = s * 0.28;
+        ctx.beginPath();
+        ctx.moveTo(-s + borderRadius, -s);
+        ctx.lineTo( s - borderRadius, -s);
+        ctx.quadraticCurveTo(s, -s, s, -s + borderRadius);
+        ctx.lineTo(s,  s - borderRadius);
+        ctx.quadraticCurveTo(s, s, s - borderRadius, s);
+        ctx.lineTo(-s + borderRadius, s);
+        ctx.quadraticCurveTo(-s, s, -s, s - borderRadius);
+        ctx.lineTo(-s, -s + borderRadius);
+        ctx.quadraticCurveTo(-s, -s, -s + borderRadius, -s);
+        ctx.closePath();
+
+        // İç dolgu: hafif transparan + renk
+        ctx.fillStyle = meta.color + "33";
+        ctx.fill();
+        ctx.strokeStyle = meta.color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+
+        // Sembol
+        ctx.fillStyle = meta.color;
+        ctx.font = `bold ${Math.round(TILE * 0.26)}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(meta.symbol, cx, cy);
+      }
+
+      drawEffect();
+
+      const sel = currentPlayer();
+      if (sel && !sel.moved && !isGameOver() && game.started && !game.paused) {
+        for (const m of movableTiles(sel)) {
+          ctx.fillStyle = "rgba(34, 197, 94, 0.22)";
+          ctx.fillRect(m.x * TILE, m.y * TILE, TILE, TILE);
+        }
+      }
+
+      ctx.strokeStyle = "rgba(31,41,55,0.22)";
+      for (let i = 0; i <= GRID; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * TILE, 0);
+        ctx.lineTo(i * TILE, canvas.height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, i * TILE);
+        ctx.lineTo(canvas.width, i * TILE);
+        ctx.stroke();
+      }
+    }
+
+    function drawPlayers() {
+      for (const p of game.players) {
+        const cx = p.x * TILE + TILE / 2;
+        const cy = p.y * TILE + TILE / 2;
+
+        ctx.beginPath();
+        ctx.fillStyle = teamColor(p.team);
+        ctx.arc(cx, cy, TILE * 0.28, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (p.team === game.turn) {
+          ctx.beginPath();
+          ctx.strokeStyle = "#111827";
+          ctx.lineWidth = 3;
+          ctx.arc(cx, cy, TILE * 0.34, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.lineWidth = 1;
+        }
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 14px Trebuchet MS";
+        ctx.textAlign = "center";
+        ctx.fillText(String(p.hp), cx, cy + 5);
+      }
+    }
+
+    function render() {
+      drawBoard();
+      drawPlayers();
+
+      const isP1 = game.turn === 1;
+      turnBadge.textContent = isP1 ? "Mavi" : "Kırmızı";
+      turnBadge.className = "badge " + (isP1 ? "p1" : "p2");
+
+      const p1 = playerByTeam(1);
+      const p2 = playerByTeam(2);
+      const maxHp = 6;
+
+      document.getElementById("p1hp").textContent = p1.hp;
+      document.getElementById("p1bar").style.width = Math.max(0, (p1.hp / maxHp) * 100) + "%";
+      document.getElementById("p1powers").innerHTML = powerSummaryHTML(p1);
+
+      document.getElementById("p2hp").textContent = p2.hp;
+      document.getElementById("p2bar").style.width = Math.max(0, (p2.hp / maxHp) * 100) + "%";
+      document.getElementById("p2powers").innerHTML = powerSummaryHTML(p2);
+
+      if (game.paused) {
+        statusText.textContent = "Oyun duraklatıldı.";
+      } else if (game.started) {
+        statusText.textContent = "Oyun aktif.";
+      } else {
+        statusText.textContent = "Başlatmak için menüyü kullan.";
+      }
+
+      if (isGameOver()) {
+        infoText.textContent = `Oyun bitti. Kazanan: ${winnerName()}! 🏆`;
+        pauseBtn.textContent = "Duraklat";
+      }
+    }
+
+    function switchTurn() {
+      if (isGameOver()) {
+        render();
+        return;
+      }
+
+      resolveAttack();
+      if (isGameOver()) {
+        render();
+        return;
+      }
+
+      game.turn = game.turn === 1 ? 2 : 1;
+      currentPlayer().moved = false;
+
+      infoText.textContent = `Sıradaki: ${currentPlayer().name}`;
+
+      render();
+    }
+
+    function restart() {
+      game = newGameState();
+      game.started = true;
+      game.paused = false;
+      menuOverlay.classList.add("hidden");
+      pauseBtn.textContent = "Duraklat";
+      infoText.textContent = "Oyun başladı! Hamle yapmak için yeşil karelere tıkla.";
+      updatePowerupLegend();
+      render();
+    }
+
+    function togglePause() {
+      if (!game.started || isGameOver()) {
+        return;
+      }
+
+      game.paused = !game.paused;
+      pauseBtn.textContent = game.paused ? "Devam Et" : "Duraklat";
+      if (game.paused) {
+        infoText.textContent = "Oyun duraklatıldı.";
+      }
+      render();
+    }
+
+    function handleMoveAt(x, y) {
+      if (!game.started || game.paused || isGameOver()) {
+        return;
+      }
+
+      const sel = currentPlayer();
+
+      if (!sel || sel.moved) {
+        infoText.textContent = "Bu turda zaten hareket ettin.";
+        return;
+      }
+
+      const canMove = movableTiles(sel).some(m => m.x === x && m.y === y);
+      if (!canMove) {
+        infoText.textContent = "Geçersiz hamle.";
+        return;
+      }
+
+      const originX = sel.x;
+      const originY = sel.y;
+      sel.x = x;
+      sel.y = y;
+      sel.moved = true;
+      consumePowerup(sel);
+
+      if (isPlayerOnTrap(sel)) {
+        if (sel.hp <= 0) {
+          createEffect("kill", sel.x, sel.y, OBSTACLE_META.trap.color);
+          render();
+          return;
+        }
+
+        infoText.textContent = `${sel.name} tuzağa bastı!`;
+      }
+
+      // Rakibin üzerine basıldıysa rakip ölür
+      const enemy = enemyPlayer();
+      if (enemy && sel.x === enemy.x && sel.y === enemy.y) {
+        if (enemy.powers.shield) {
+          enemy.powers.shield = false;
+          enemy.hp = Math.max(1, enemy.hp);
+          sel.x = originX;
+          sel.y = originY;
+          sel.moved = false;
+          infoText.textContent = `${enemy.name} kalkanını kullandı! Hamle iptal edildi.`;
+          createEffect("shield", enemy.x, enemy.y, POWERUP_META.shield.color);
+          render();
+          switchTurn();
+          return;
+        }
+
+        enemy.hp = 0;
+        infoText.textContent = `${sel.name} rakibinin üzerine bastı!`;
+        createEffect("kill", enemy.x, enemy.y, teamColor(sel.team));
+        render();
+        return;
+      }
+
+      if (sel.hp <= 0) {
+        createEffect("kill", sel.x, sel.y, teamColor(sel.team));
+        render();
+        return;
+      }
+
+      switchTurn();
+    }
+
+    canvas.addEventListener("pointerdown", e => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = Math.floor(((e.clientX - rect.left) * scaleX) / TILE);
+      const y = Math.floor(((e.clientY - rect.top) * scaleY) / TILE);
+      handleMoveAt(x, y);
+    });
+
+    startBtn.addEventListener("click", restart);
+    pauseBtn.addEventListener("click", togglePause);
+    resetBtn.addEventListener("click", restart);
+
+    function gameLoop(timestamp) {
+      const delta = lastFrameTime ? (timestamp - lastFrameTime) / 1000 : 0;
+      lastFrameTime = timestamp;
+
+      if (game && game.started && !game.paused) {
+        updateEffect(delta);
+      }
+
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    updatePowerupLegend();
+    game = newGameState();
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
