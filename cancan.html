@@ -147,6 +147,33 @@
       flex-wrap: wrap;
     }
 
+    .menu-picks {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+      text-align: left;
+    }
+
+    .menu-pick label {
+      display: block;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .menu-pick select {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(15,23,42,0.8);
+      color: #f1f5f9;
+      padding: 10px;
+      font-size: 0.92rem;
+    }
+
     .button-secondary {
       background: linear-gradient(135deg, #1e293b, #334155);
       color: #e2e8f0;
@@ -401,6 +428,8 @@
       <div class="divider"></div>
 
       <div class="btns">
+        <button id="abilityBtn">Yetenek Kullan</button>
+        <button id="soundBtn" class="button-secondary">Ses: Açık</button>
         <button id="pauseBtn" class="button-secondary">Duraklat</button>
         <button id="resetBtn">Yeniden Başlat</button>
       </div>
@@ -439,6 +468,30 @@
         10x10 haritada Mavi ve Kırmızı çarpışır.<br>
         Güçleri topla, tuzaklardan kaç ve rakibinin karesine basarak kazan.
       </div>
+      <div class="menu-picks">
+        <div class="menu-pick">
+          <label for="p1Character">Mavi Oyuncu Karakteri</label>
+          <select id="p1Character">
+            <option value="minoto">Minoto (Yıkıcı)</option>
+            <option value="hunter">Hunter (Gözcü)</option>
+            <option value="builder">İnşaatçı (Mimar)</option>
+            <option value="portal">Portal (Gezgin)</option>
+            <option value="frog">Kurbağa (Sıçrayan)</option>
+            <option value="trickster">Tuzakçı (Kurnaz)</option>
+          </select>
+        </div>
+        <div class="menu-pick">
+          <label for="p2Character">Kırmızı Oyuncu Karakteri</label>
+          <select id="p2Character">
+            <option value="hunter">Hunter (Gözcü)</option>
+            <option value="minoto">Minoto (Yıkıcı)</option>
+            <option value="builder">İnşaatçı (Mimar)</option>
+            <option value="portal">Portal (Gezgin)</option>
+            <option value="frog">Kurbağa (Sıçrayan)</option>
+            <option value="trickster">Tuzakçı (Kurnaz)</option>
+          </select>
+        </div>
+      </div>
       <div class="menu-actions">
         <button id="startBtn">Oyunu Başlat</button>
       </div>
@@ -455,35 +508,148 @@
     const startBtn = document.getElementById("startBtn");
     const pauseBtn = document.getElementById("pauseBtn");
     const resetBtn = document.getElementById("resetBtn");
+    const abilityBtn = document.getElementById("abilityBtn");
+    const soundBtn = document.getElementById("soundBtn");
+    const p1CharacterSelect = document.getElementById("p1Character");
+    const p2CharacterSelect = document.getElementById("p2Character");
 
     const GRID = 10;
     const TILE = canvas.width / GRID;
-    const OBSTACLE_COUNT = 14;
-    const POWERUP_TYPES = ["speed", "diagonal", "jump", "shield", "heal"];
+    const WALL_COUNT = 14;
+    const MAP_TRAP_COUNT = 3;
+    const MAP_TRAP_DAMAGE = 3;
     const MAX_HP = 6;
+    const POWERUP_TYPES = ["speed", "diagonal", "jump", "shield", "heal"];
+
+    const CHARACTERS = {
+      minoto: {
+        label: "Minoto (Yıkıcı)",
+        ability: "Yıkım",
+        cooldown: 2,
+        description: "Bitişik duvarı kırar."
+      },
+      hunter: {
+        label: "Hunter (Gözcü)",
+        ability: "Keskin Atış",
+        cooldown: 2,
+        description: "Aynı satır/sütunda engel yoksa hedefi vurur."
+      },
+      builder: {
+        label: "İnşaatçı (Mimar)",
+        ability: "Duvar Kur",
+        cooldown: 1,
+        description: "Bitişik boş kareye duvar yerleştirir."
+      },
+      portal: {
+        label: "Portal (Gezgin)",
+        ability: "Portal Kur",
+        cooldown: 1,
+        description: "2 portal yerleştirir; üstünden geçince diğerine gider."
+      },
+      frog: {
+        label: "Kurbağa (Sıçrayan)",
+        ability: "Sıçrama",
+        cooldown: 2,
+        description: "3 kare menzile sıçrar, duvarları aşar."
+      },
+      trickster: {
+        label: "Tuzakçı (Kurnaz)",
+        ability: "Ölüm Tuzağı",
+        cooldown: 2,
+        description: "Tek aktif kalıcı tuzak kurar. Düşman anında ölür."
+      }
+    };
+
+    const POWERUP_META = {
+      speed: { color: "#38bdf8", glow: "rgba(56,189,248,0.55)", symbol: "⚡", label: "Hız" },
+      diagonal: { color: "#a78bfa", glow: "rgba(167,139,250,0.55)", symbol: "✦", label: "Çapraz" },
+      jump: { color: "#4ade80", glow: "rgba(74,222,128,0.55)", symbol: "↑", label: "Atlama" },
+      shield: { color: "#f59e0b", glow: "rgba(245,158,11,0.55)", symbol: "🛡", label: "Kalkan" },
+      heal: { color: "#fb7185", glow: "rgba(251,113,133,0.55)", symbol: "＋", label: "İyileşme" }
+    };
 
     let game = null;
     let lastFrameTime = 0;
+    let audioCtx = null;
+    let soundEnabled = true;
 
-    const POWERUP_META = {
-      speed:    { color: "#38bdf8", glow: "rgba(56,189,248,0.55)",  symbol: "⚡", label: "Hız" },
-      diagonal: { color: "#a78bfa", glow: "rgba(167,139,250,0.55)", symbol: "✦", label: "Çapraz" },
-      jump:     { color: "#4ade80", glow: "rgba(74,222,128,0.55)",  symbol: "↑", label: "Atlama" },
-      shield:   { color: "#f59e0b", glow: "rgba(245,158,11,0.55)",   symbol: "🛡", label: "Kalkan" },
-      heal:     { color: "#fb7185", glow: "rgba(251,113,133,0.55)",  symbol: "＋", label: "İyileşme" }
-    };
+    function ensureAudioContext() {
+      if (audioCtx) {
+        return audioCtx;
+      }
 
-    const OBSTACLE_META = {
-      wall: { color: "#64748b", label: "Duvar" },
-      trap: { color: "#ef4444", label: "Tuzak" }
-    };
+      const Ctx = globalThis.AudioContext || globalThis.webkitAudioContext;
+      if (!Ctx) {
+        return null;
+      }
+
+      audioCtx = new Ctx();
+      return audioCtx;
+    }
+
+    function playTone(freq, duration, type, volume, when = 0) {
+      const ctx = ensureAudioContext();
+      if (!ctx || !soundEnabled) {
+        return;
+      }
+
+      const startAt = ctx.currentTime + when;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, startAt);
+      gain.gain.setValueAtTime(0.0001, startAt);
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, volume), startAt + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startAt);
+      osc.stop(startAt + duration + 0.02);
+    }
+
+    function playSound(kind) {
+      if (!soundEnabled) {
+        return;
+      }
+
+      if (kind === "button") {
+        playTone(480, 0.06, "triangle", 0.05);
+        return;
+      }
+      if (kind === "move") {
+        playTone(320, 0.08, "square", 0.045);
+        return;
+      }
+      if (kind === "powerup") {
+        playTone(620, 0.07, "triangle", 0.06);
+        playTone(860, 0.1, "triangle", 0.05, 0.05);
+        return;
+      }
+      if (kind === "trap") {
+        playTone(180, 0.12, "sawtooth", 0.06);
+        return;
+      }
+      if (kind === "ability") {
+        playTone(540, 0.06, "triangle", 0.045);
+        playTone(740, 0.08, "triangle", 0.04, 0.04);
+        return;
+      }
+      if (kind === "kill") {
+        playTone(220, 0.08, "sawtooth", 0.07);
+        playTone(140, 0.16, "sawtooth", 0.055, 0.08);
+      }
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      soundBtn.textContent = `Ses: ${soundEnabled ? "Açık" : "Kapalı"}`;
+      if (soundEnabled) {
+        playSound("button");
+      }
+    }
 
     function randomInt(max) {
       return Math.floor(Math.random() * max);
-    }
-
-    function key(x, y) {
-      return `${x},${y}`;
     }
 
     function inBounds(x, y) {
@@ -495,7 +661,7 @@
     }
 
     function tileColor(x, y) {
-      return (x + y) % 2 === 0 ? "#f1f5f9" : "#dbe4ee";
+      return (x + y) % 2 === 0 ? "#1e293b" : "#0f172a";
     }
 
     function playerByTeam(team) {
@@ -511,32 +677,28 @@
     }
 
     function getPlayerAt(x, y) {
-      return game.players.find(p => p.x === x && p.y === y);
+      return game.players.find(p => p.x === x && p.y === y) || null;
     }
 
     function getObstacleAt(x, y) {
-      return game.obstacles.find(obstacle => obstacle.x === x && obstacle.y === y) || null;
+      return game.obstacles.find(o => o.x === x && o.y === y) || null;
     }
 
-    function isAdjacent(a, b) {
-      const dx = Math.abs(a.x - b.x);
-      const dy = Math.abs(a.y - b.y);
-      return Math.max(dx, dy) === 1;
+    function isWallAt(x, y) {
+      const o = getObstacleAt(x, y);
+      return o && o.type === "wall";
     }
 
-    function moveRange(player) {
-      return player.powers.speed ? 2 : 1;
+    function getDeadlyTrapAt(x, y) {
+      const o = getObstacleAt(x, y);
+      return o && o.type === "deadlyTrap" ? o : null;
     }
 
-    function canUseDiagonal(player) {
-      return player.powers.diagonal;
+    function hasPowerupAt(x, y) {
+      return game.powerups.some(p => p.x === x && p.y === y);
     }
 
-    function canJump(player) {
-      return player.powers.jump;
-    }
-
-    function lineIntersectsObstacle(fromX, fromY, toX, toY) {
+    function lineIntersectsWall(fromX, fromY, toX, toY) {
       const steps = Math.max(Math.abs(toX - fromX), Math.abs(toY - fromY));
       if (steps <= 1) {
         return false;
@@ -544,45 +706,45 @@
 
       const stepX = (toX - fromX) / steps;
       const stepY = (toY - fromY) / steps;
-
       for (let i = 1; i < steps; i++) {
         const x = fromX + stepX * i;
         const y = fromY + stepY * i;
-        const obstacle = getObstacleAt(x, y);
-        if (obstacle && obstacle.type === "wall") {
+        if (isWallAt(x, y)) {
           return true;
         }
       }
-
       return false;
     }
 
-    function isValidMoveTarget(player, targetX, targetY, dx, dy, range) {
+    function moveRange(player) {
+      return player.powers.speed ? 2 : 1;
+    }
+
+    function isMoveAllowed(player, targetX, targetY, dx, dy, range) {
       if (!inBounds(targetX, targetY)) {
         return false;
       }
 
-      const distance = Math.max(Math.abs(dx), Math.abs(dy));
-      if (distance > range) {
+      const dist = Math.max(Math.abs(dx), Math.abs(dy));
+      if (dist > range) {
         return false;
       }
 
-      const isDiagonalStep = dx !== 0 && dy !== 0;
-      if (isDiagonalStep && !canUseDiagonal(player)) {
+      const diagonal = dx !== 0 && dy !== 0;
+      if (diagonal && !player.powers.diagonal) {
         return false;
       }
 
-      const obstacle = getObstacleAt(targetX, targetY);
-      if (obstacle && obstacle.type === "wall") {
+      if (isWallAt(targetX, targetY)) {
         return false;
       }
 
-      const occupant = getPlayerAt(targetX, targetY);
-      if (occupant && occupant.team === player.team) {
+      const occ = getPlayerAt(targetX, targetY);
+      if (occ && occ.team === player.team) {
         return false;
       }
 
-      if (!canJump(player) && lineIntersectsObstacle(player.x, player.y, targetX, targetY)) {
+      if (!player.powers.jump && lineIntersectsWall(player.x, player.y, targetX, targetY)) {
         return false;
       }
 
@@ -591,65 +753,59 @@
 
     function movableTiles(player) {
       const range = moveRange(player);
-      const tiles = [];
-
+      const out = [];
       for (let dy = -range; dy <= range; dy++) {
         for (let dx = -range; dx <= range; dx++) {
           if (dx === 0 && dy === 0) {
             continue;
           }
-
-          const targetX = player.x + dx;
-          const targetY = player.y + dy;
-          if (isValidMoveTarget(player, targetX, targetY, dx, dy, range)) {
-            tiles.push({ x: targetX, y: targetY });
+          const tx = player.x + dx;
+          const ty = player.y + dy;
+          if (isMoveAllowed(player, tx, ty, dx, dy, range)) {
+            out.push({ x: tx, y: ty });
           }
         }
       }
-
-      return tiles;
+      return out;
     }
 
-    function obstacleOccupied(state, x, y) {
-      return state.obstacles.some(obstacle => obstacle.x === x && obstacle.y === y);
-    }
-
-    function placeObstacles(state) {
-      const targets = { wall: 10, trap: 4 };
-      while (
-        state.obstacles.filter(obstacle => obstacle.type === "wall").length < targets.wall ||
-        state.obstacles.filter(obstacle => obstacle.type === "trap").length < targets.trap
-      ) {
+    function placeWalls(state) {
+      while (state.obstacles.filter(o => o.type === "wall").length < WALL_COUNT) {
         const x = randomInt(GRID);
         const y = randomInt(GRID);
-        const occupiedByPlayer = state.players.some(p => p.x === x && p.y === y);
-        if (occupiedByPlayer || obstacleOccupied(state, x, y)) {
-          continue;
+        const occupied = state.players.some(p => p.x === x && p.y === y);
+        const hasObstacle = state.obstacles.some(o => o.x === x && o.y === y);
+        if (!occupied && !hasObstacle) {
+          state.obstacles.push({ type: "wall", x, y });
         }
+      }
+    }
 
-        const wallCount = state.obstacles.filter(obstacle => obstacle.type === "wall").length;
-        const trapCount = state.obstacles.filter(obstacle => obstacle.type === "trap").length;
-        let type = "wall";
-        if (wallCount >= targets.wall && trapCount < targets.trap) {
-          type = "trap";
+    function placeMapTraps(state) {
+      while (state.obstacles.filter(o => o.type === "trap").length < MAP_TRAP_COUNT) {
+        const x = randomInt(GRID);
+        const y = randomInt(GRID);
+        const occupied = state.players.some(p => p.x === x && p.y === y);
+        const hasObstacle = state.obstacles.some(o => o.x === x && o.y === y);
+        if (!occupied && !hasObstacle) {
+          state.obstacles.push({ type: "trap", x, y });
         }
-        state.obstacles.push({ x, y, type });
       }
     }
 
     function placePowerups(state) {
       const placed = [];
       for (const type of POWERUP_TYPES) {
+        let ok = false;
         let x = 0;
         let y = 0;
-        let ok = false;
         while (!ok) {
           x = randomInt(GRID);
           y = randomInt(GRID);
-          const blocked = obstacleOccupied(state, x, y);
-          const occupiedByPlayer = state.players.some(p => p.x === x && p.y === y);
-          const alreadyUsed = placed.some(p => p.x === x && p.y === y);
-          ok = !blocked && !occupiedByPlayer && !alreadyUsed;
+          const blocked = state.obstacles.some(o => o.x === x && o.y === y);
+          const occupied = state.players.some(p => p.x === x && p.y === y);
+          const dup = placed.some(p => p.x === x && p.y === y);
+          ok = !blocked && !occupied && !dup;
         }
         placed.push({ type, x, y });
       }
@@ -657,6 +813,9 @@
     }
 
     function newGameState() {
+      const p1Char = p1CharacterSelect.value;
+      const p2Char = p2CharacterSelect.value;
+
       const state = {
         turn: 1,
         started: false,
@@ -669,37 +828,51 @@
             x: 0,
             y: 0,
             hp: MAX_HP,
-            moved: false,
+            actionDone: false,
+            abilityArmed: false,
+            cooldown: 0,
+            characterId: p1Char,
+            trapCharges: p1Char === "trickster" ? 2 : 0,
             powers: { speed: false, diagonal: false, jump: false, shield: false }
           },
           {
             id: "p2",
-            name: "Kirmizi",
+            name: "Kırmızı",
             team: 2,
             x: GRID - 1,
             y: GRID - 1,
             hp: MAX_HP,
-            moved: false,
+            actionDone: false,
+            abilityArmed: false,
+            cooldown: 0,
+            characterId: p2Char,
+            trapCharges: p2Char === "trickster" ? 2 : 0,
             powers: { speed: false, diagonal: false, jump: false, shield: false }
           }
         ],
         obstacles: [],
         powerups: [],
-        effect: null
+        effect: null,
+        portals: { 1: [], 2: [] }
       };
 
-      placeObstacles(state);
+      placeWalls(state);
+      placeMapTraps(state);
       placePowerups(state);
       return state;
     }
 
     function powerSummaryHTML(player) {
       const pips = [];
-      if (player.powers.speed)    { pips.push("<span class='power-pip'>⚡ Hız</span>"); }
+      pips.push(`<span class='power-pip'>${CHARACTERS[player.characterId].label}</span>`);
+      if (player.powers.speed) { pips.push("<span class='power-pip'>⚡ Hız</span>"); }
       if (player.powers.diagonal) { pips.push("<span class='power-pip'>✦ Çapraz</span>"); }
-      if (player.powers.jump)     { pips.push("<span class='power-pip'>↑ Atlama</span>"); }
-      if (player.powers.shield)   { pips.push("<span class='power-pip'>🛡 Kalkan</span>"); }
-      return pips.length ? pips.join("") : "<span style='color:#94a3b8'>Güç yok</span>";
+      if (player.powers.jump) { pips.push("<span class='power-pip'>↑ Atlama</span>"); }
+      if (player.powers.shield) { pips.push("<span class='power-pip'>🛡 Kalkan</span>"); }
+      if (player.characterId === "trickster") {
+        pips.push(`<span class='power-pip'>🕳 Tuzak: ${player.trapCharges}</span>`);
+      }
+      return pips.join("");
     }
 
     function updatePowerupLegend() {
@@ -713,20 +886,20 @@
         <strong>✦ Ç</strong> Çapraz — çapraz yönler açılır<br>
         <strong>↑ A</strong> Atlama — engel aşma<br>
         <strong>🛡 K</strong> Kalkan — bir ölümcül darbeyi engeller<br>
+        <strong>🕳 T</strong> Tuzak — üzerine basan 3 can kaybeder<br>
         <strong>＋ İ</strong> İyileşme — can yeniler<br><br>
-        Rakibin karesine adım at → rakip ölür.
+        Her tur tek aksiyon: hareket veya yetenek.
       `;
     }
 
     function createEffect(kind, x, y, color) {
-      game.effect = { kind, x, y, life: 0.55, color };
+      game.effect = { kind, x, y, life: 0.5, color };
     }
 
     function updateEffect(dt) {
       if (!game.effect) {
         return;
       }
-
       game.effect.life -= dt;
       if (game.effect.life <= 0) {
         game.effect = null;
@@ -738,33 +911,30 @@
         return;
       }
 
-      const effect = game.effect;
-      const cx = effect.x * TILE + TILE / 2;
-      const cy = effect.y * TILE + TILE / 2;
-      const progress = Math.max(0, 1 - (effect.life / 0.55));
-      const radius = TILE * (0.25 + progress * 0.55);
+      const fx = game.effect;
+      const cx = fx.x * TILE + TILE / 2;
+      const cy = fx.y * TILE + TILE / 2;
+      const progress = Math.max(0, 1 - fx.life / 0.5);
+      const radius = TILE * (0.2 + progress * 0.65);
 
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      ctx.strokeStyle = effect.color;
-      ctx.lineWidth = 4 + progress * 4;
-      ctx.globalAlpha = 0.9 - progress * 0.7;
+      ctx.strokeStyle = fx.color;
+      ctx.lineWidth = 3 + progress * 3;
+      ctx.globalAlpha = 0.9 - progress * 0.65;
       ctx.beginPath();
       ctx.arc(cx, cy, radius, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
 
-    function isPlayerOnTrap(player) {
-      const obstacle = getObstacleAt(player.x, player.y);
-      if (!obstacle || obstacle.type !== "trap") {
-        return false;
-      }
+    function isGameOver() {
+      return game.players.some(p => p.hp <= 0);
+    }
 
-      game.obstacles = game.obstacles.filter(item => !(item.x === obstacle.x && item.y === obstacle.y));
-      player.hp -= 1;
-      createEffect("trap", player.x, player.y, OBSTACLE_META.trap.color);
-      return true;
+    function winnerName() {
+      const alive = game.players.find(p => p.hp > 0);
+      return alive ? alive.name : "Berabere";
     }
 
     function consumePowerup(player) {
@@ -778,135 +948,336 @@
 
       if (picked.type === "heal") {
         player.hp = Math.min(MAX_HP, player.hp + 2);
-        infoText.textContent = `${player.name} iyileşme aldı! Canı yenilendi.`;
+        infoText.textContent = `${player.name} iyileşme aldı!`;
         createEffect("heal", player.x, player.y, POWERUP_META.heal.color);
+        playSound("powerup");
         return;
       }
 
       player.powers[picked.type] = true;
+      infoText.textContent = `${player.name} ${POWERUP_META[picked.type].label} gücünü aldı!`;
       createEffect("powerup", player.x, player.y, POWERUP_META[picked.type].color);
+      playSound("powerup");
+    }
 
-      if (picked.type === "speed") {
-        infoText.textContent = `${player.name} hız gücünü aldı! Artık 2 kare hareket eder.`;
-      } else if (picked.type === "diagonal") {
-        infoText.textContent = `${player.name} çapraz hareket gücünü aldı!`;
-      } else if (picked.type === "jump") {
-        infoText.textContent = `${player.name} atlama gücünü aldı! Engellerin üzerinden geçebilir.`;
-      } else if (picked.type === "shield") {
-        infoText.textContent = `${player.name} kalkan gücünü aldı! Bir ölümcül darbeyi engeller.`;
+    function applyShieldLogic(attacker, defender) {
+      if (!defender.powers.shield) {
+        return false;
+      }
+
+      defender.powers.shield = false;
+      infoText.textContent = `${defender.name} kalkanını kullandı!`;
+      createEffect("shield", defender.x, defender.y, POWERUP_META.shield.color);
+      return true;
+    }
+
+    function applyPortalTransit(player) {
+      const portals = game.portals[player.team];
+      if (portals.length !== 2) {
+        return;
+      }
+
+      if (player.x === portals[0].x && player.y === portals[0].y) {
+        const destination = portals[1];
+        if (!getPlayerAt(destination.x, destination.y)) {
+          player.x = destination.x;
+          player.y = destination.y;
+        }
+      } else if (player.x === portals[1].x && player.y === portals[1].y) {
+        const destination = portals[0];
+        if (!getPlayerAt(destination.x, destination.y)) {
+          player.x = destination.x;
+          player.y = destination.y;
+        }
       }
     }
 
-    function resolveAttack() {
-      // Ölüm: rakibin karesine basılınca gerçekleşir (click handler'da kontrol edilir)
+    function checkDeadlyTrap(player) {
+      const trap = getDeadlyTrapAt(player.x, player.y);
+      if (!trap || trap.ownerTeam === player.team) {
+        return false;
+      }
+
+      player.hp = 0;
+      createEffect("kill", player.x, player.y, "#ef4444");
+      infoText.textContent = `${player.name} ölüm tuzağına yakalandı!`;
+      playSound("kill");
+      return true;
     }
 
-    function isGameOver() {
-      return game.players.some(p => p.hp <= 0);
+    function checkMapTrapDamage(player) {
+      const trap = getObstacleAt(player.x, player.y);
+      if (!trap || trap.type !== "trap") {
+        return false;
+      }
+
+      game.obstacles = game.obstacles.filter(o => !(o.type === "trap" && o.x === trap.x && o.y === trap.y));
+      player.hp = Math.max(0, player.hp - MAP_TRAP_DAMAGE);
+      createEffect("trap", player.x, player.y, "#f97316");
+      infoText.textContent = `${player.name} tuzağa bastı! -${MAP_TRAP_DAMAGE} can`;
+      playSound("trap");
+      return true;
     }
 
-    function winnerName() {
-      const alive = game.players.find(p => p.hp > 0);
-      return alive ? alive.name : "Berabere";
+    function startNextTurn() {
+      game.turn = game.turn === 1 ? 2 : 1;
+      const player = currentPlayer();
+      player.actionDone = false;
+      player.abilityArmed = false;
+      if (player.cooldown > 0) {
+        player.cooldown -= 1;
+      }
+      infoText.textContent = `Sıradaki: ${player.name}`;
     }
 
-    function drawBoard() {
+    function endTurn() {
+      if (isGameOver()) {
+        render();
+        return;
+      }
+      startNextTurn();
+      render();
+    }
+
+    function isTileEmptyForUtility(x, y) {
+      return inBounds(x, y)
+        && !getPlayerAt(x, y)
+        && !getObstacleAt(x, y)
+        && !hasPowerupAt(x, y);
+    }
+
+    function canUseAbility(player) {
+      return player.cooldown === 0 && !player.actionDone;
+    }
+
+    function armAbility() {
+      const player = currentPlayer();
+      if (!game.started || game.paused || isGameOver()) {
+        return;
+      }
+      if (!canUseAbility(player)) {
+        infoText.textContent = player.cooldown > 0
+          ? `Yetenek beklemede: ${player.cooldown} tur`
+          : "Bu tur aksiyonunu zaten kullandın.";
+        return;
+      }
+
+      player.abilityArmed = !player.abilityArmed;
+      infoText.textContent = player.abilityArmed
+        ? `${CHARACTERS[player.characterId].ability} hedefini seç.`
+        : "Yetenek modu kapatıldı.";
+      render();
+    }
+
+    function sameLineAndClear(a, b) {
+      if (a.x !== b.x && a.y !== b.y) {
+        return false;
+      }
+      return !lineIntersectsWall(a.x, a.y, b.x, b.y);
+    }
+
+    function useMinotoAbility(player, x, y) {
+      const dx = Math.abs(player.x - x);
+      const dy = Math.abs(player.y - y);
+      if (Math.max(dx, dy) !== 1 || !isWallAt(x, y)) {
+        infoText.textContent = "Minoto sadece bitişik duvarı kırabilir.";
+        return false;
+      }
+      game.obstacles = game.obstacles.filter(o => !(o.type === "wall" && o.x === x && o.y === y));
+      createEffect("break", x, y, "#f59e0b");
+      return true;
+    }
+
+    function useHunterAbility(player) {
+      const enemy = enemyPlayer();
+      if (!sameLineAndClear(player, enemy)) {
+        infoText.textContent = "Hunter için düz görüş hattı gerekli.";
+        return false;
+      }
+      if (!applyShieldLogic(player, enemy)) {
+        enemy.hp = 0;
+        createEffect("kill", enemy.x, enemy.y, teamColor(player.team));
+      }
+      return true;
+    }
+
+    function useBuilderAbility(player, x, y) {
+      const dx = Math.abs(player.x - x);
+      const dy = Math.abs(player.y - y);
+      if (Math.max(dx, dy) !== 1 || !isTileEmptyForUtility(x, y)) {
+        infoText.textContent = "İnşaatçı bitişik boş kareye duvar kurar.";
+        return false;
+      }
+      game.obstacles.push({ type: "wall", x, y });
+      createEffect("build", x, y, "#22c55e");
+      return true;
+    }
+
+    function usePortalAbility(player, x, y) {
+      if (!isTileEmptyForUtility(x, y)) {
+        infoText.textContent = "Portal boş kareye kurulmalı.";
+        return false;
+      }
+      const ownPortals = game.portals[player.team];
+      if (ownPortals.length === 2) {
+        ownPortals.shift();
+      }
+      ownPortals.push({ x, y });
+      createEffect("portal", x, y, "#60a5fa");
+      return true;
+    }
+
+    function useFrogAbility(player, x, y) {
+      const dx = Math.abs(player.x - x);
+      const dy = Math.abs(player.y - y);
+      if (!inBounds(x, y) || Math.max(dx, dy) > 3 || isWallAt(x, y)) {
+        infoText.textContent = "Kurbağa en fazla 3 kare sıçrayabilir.";
+        return false;
+      }
+      const occ = getPlayerAt(x, y);
+      if (occ && occ.team === player.team) {
+        infoText.textContent = "Kendi oyuncunun üstüne sıçrayamazsın.";
+        return false;
+      }
+      const originX = player.x;
+      const originY = player.y;
+      player.x = x;
+      player.y = y;
+      if (occ && occ.team !== player.team) {
+        if (applyShieldLogic(player, occ)) {
+          player.x = originX;
+          player.y = originY;
+        } else {
+          occ.hp = 0;
+          createEffect("kill", occ.x, occ.y, teamColor(player.team));
+        }
+      }
+      return true;
+    }
+
+    function useTricksterAbility(player, x, y) {
+      const dx = Math.abs(player.x - x);
+      const dy = Math.abs(player.y - y);
+      if (player.trapCharges <= 0) {
+        infoText.textContent = "Tuzak hakkın kalmadı.";
+        return false;
+      }
+      if (Math.max(dx, dy) !== 1 || !isTileEmptyForUtility(x, y)) {
+        infoText.textContent = "Tuzak bitişik boş kareye kurulur.";
+        return false;
+      }
+      const activeTrap = game.obstacles.some(o => o.type === "deadlyTrap" && o.ownerTeam === player.team);
+      if (activeTrap) {
+        infoText.textContent = "Aynı anda yalnızca 1 aktif ölüm tuzağın olabilir.";
+        return false;
+      }
+      game.obstacles.push({ type: "deadlyTrap", ownerTeam: player.team, x, y });
+      player.trapCharges -= 1;
+      createEffect("trap", x, y, "#ef4444");
+      return true;
+    }
+
+    function executeAbility(player, x, y) {
+      const cfg = CHARACTERS[player.characterId];
+      const handlers = {
+        minoto: () => useMinotoAbility(player, x, y),
+        hunter: () => useHunterAbility(player),
+        builder: () => useBuilderAbility(player, x, y),
+        portal: () => usePortalAbility(player, x, y),
+        frog: () => useFrogAbility(player, x, y),
+        trickster: () => useTricksterAbility(player, x, y)
+      };
+
+      const handler = handlers[player.characterId];
+      if (!handler) {
+        return false;
+      }
+
+      const success = handler();
+      if (success) {
+        player.cooldown = cfg.cooldown;
+        playSound("ability");
+      }
+      return success;
+    }
+
+    function drawGrid() {
       for (let y = 0; y < GRID; y++) {
         for (let x = 0; x < GRID; x++) {
           ctx.fillStyle = tileColor(x, y);
           ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
         }
       }
+    }
 
+    function drawObstacles() {
       for (const obstacle of game.obstacles) {
         if (obstacle.type === "wall") {
-          ctx.fillStyle = OBSTACLE_META.wall.color;
+          ctx.fillStyle = "#64748b";
           ctx.fillRect(obstacle.x * TILE + 6, obstacle.y * TILE + 6, TILE - 12, TILE - 12);
-          ctx.fillStyle = "rgba(255,255,255,0.12)";
-          ctx.fillRect(obstacle.x * TILE + 10, obstacle.y * TILE + 10, TILE - 20, 4);
           continue;
         }
-
-        const cx = obstacle.x * TILE + TILE / 2;
-        const cy = obstacle.y * TILE + TILE / 2;
+        ctx.fillStyle = obstacle.type === "deadlyTrap" ? "rgba(239,68,68,0.3)" : "rgba(249,115,22,0.32)";
         ctx.beginPath();
-        ctx.fillStyle = "rgba(239,68,68,0.18)";
-        ctx.arc(cx, cy, TILE * 0.24, 0, Math.PI * 2);
+        ctx.arc(obstacle.x * TILE + TILE / 2, obstacle.y * TILE + TILE / 2, TILE * 0.2, 0, Math.PI * 2);
         ctx.fill();
-        ctx.beginPath();
-        ctx.strokeStyle = OBSTACLE_META.trap.color;
-        ctx.lineWidth = 3;
-        ctx.arc(cx, cy, TILE * 0.18, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(cx - TILE * 0.12, cy - TILE * 0.12);
-        ctx.lineTo(cx + TILE * 0.12, cy + TILE * 0.12);
-        ctx.moveTo(cx + TILE * 0.12, cy - TILE * 0.12);
-        ctx.lineTo(cx - TILE * 0.12, cy + TILE * 0.12);
-        ctx.stroke();
       }
+    }
 
+    function drawPortals() {
+      for (const team of [1, 2]) {
+        const portals = game.portals[team];
+        for (const portal of portals) {
+          ctx.strokeStyle = team === 1 ? "#60a5fa" : "#f87171";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(portal.x * TILE + TILE / 2, portal.y * TILE + TILE / 2, TILE * 0.22, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+    }
+
+    function drawPowerups() {
       for (const p of game.powerups) {
         const cx = p.x * TILE + TILE / 2;
         const cy = p.y * TILE + TILE / 2;
-        const r  = TILE * 0.3;
-
+        const r = TILE * 0.3;
         const meta = POWERUP_META[p.type];
-
-        // Dış parıltı (glow)
-        const glowGrad = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 1.6);
-        glowGrad.addColorStop(0, meta.glow);
-        glowGrad.addColorStop(1, "transparent");
+        const glow = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 1.6);
+        glow.addColorStop(0, meta.glow);
+        glow.addColorStop(1, "transparent");
+        ctx.fillStyle = glow;
         ctx.beginPath();
-        ctx.arc(cx, cy, r * 1.6, 0, Math.PI * 2);
-        ctx.fillStyle = glowGrad;
+        ctx.arc(cx, cy, r * 1.5, 0, Math.PI * 2);
         ctx.fill();
 
-        // Döndürülmüş kare (elmas şekli)
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(Math.PI / 4);
-        const s = r * 0.88;
-        const borderRadius = s * 0.28;
-        ctx.beginPath();
-        ctx.moveTo(-s + borderRadius, -s);
-        ctx.lineTo( s - borderRadius, -s);
-        ctx.quadraticCurveTo(s, -s, s, -s + borderRadius);
-        ctx.lineTo(s,  s - borderRadius);
-        ctx.quadraticCurveTo(s, s, s - borderRadius, s);
-        ctx.lineTo(-s + borderRadius, s);
-        ctx.quadraticCurveTo(-s, s, -s, s - borderRadius);
-        ctx.lineTo(-s, -s + borderRadius);
-        ctx.quadraticCurveTo(-s, -s, -s + borderRadius, -s);
-        ctx.closePath();
-
-        // İç dolgu: hafif transparan + renk
-        ctx.fillStyle = meta.color + "33";
-        ctx.fill();
-        ctx.strokeStyle = meta.color;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.restore();
-
-        // Sembol
         ctx.fillStyle = meta.color;
-        ctx.font = `bold ${Math.round(TILE * 0.26)}px sans-serif`;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#ffffff";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
+        ctx.font = `bold ${Math.round(TILE * 0.2)}px sans-serif`;
         ctx.fillText(meta.symbol, cx, cy);
       }
+    }
 
-      drawEffect();
-
-      const sel = currentPlayer();
-      if (sel && !sel.moved && !isGameOver() && game.started && !game.paused) {
-        for (const m of movableTiles(sel)) {
-          ctx.fillStyle = "rgba(34, 197, 94, 0.22)";
-          ctx.fillRect(m.x * TILE, m.y * TILE, TILE, TILE);
+    function drawMoveHints() {
+      const player = currentPlayer();
+      if (game.started && !game.paused && !isGameOver() && player && !player.actionDone && !player.abilityArmed) {
+        for (const tile of movableTiles(player)) {
+          ctx.fillStyle = "rgba(34,197,94,0.24)";
+          ctx.fillRect(tile.x * TILE, tile.y * TILE, TILE, TILE);
         }
       }
+    }
 
-      ctx.strokeStyle = "rgba(31,41,55,0.22)";
+    function drawGridLines() {
+      drawEffect();
+
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
       for (let i = 0; i <= GRID; i++) {
         ctx.beginPath();
         ctx.moveTo(i * TILE, 0);
@@ -919,84 +1290,83 @@
       }
     }
 
+    function drawBoard() {
+      drawGrid();
+      drawObstacles();
+      drawPortals();
+      drawPowerups();
+      drawMoveHints();
+      drawGridLines();
+    }
+
     function drawPlayers() {
       for (const p of game.players) {
         const cx = p.x * TILE + TILE / 2;
         const cy = p.y * TILE + TILE / 2;
-
-        ctx.beginPath();
         ctx.fillStyle = teamColor(p.team);
+        ctx.beginPath();
         ctx.arc(cx, cy, TILE * 0.28, 0, Math.PI * 2);
         ctx.fill();
 
         if (p.team === game.turn) {
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 2.5;
           ctx.beginPath();
-          ctx.strokeStyle = "#111827";
-          ctx.lineWidth = 3;
           ctx.arc(cx, cy, TILE * 0.34, 0, Math.PI * 2);
           ctx.stroke();
-          ctx.lineWidth = 1;
         }
 
         ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 14px Trebuchet MS";
         ctx.textAlign = "center";
-        ctx.fillText(String(p.hp), cx, cy + 5);
+        ctx.textBaseline = "middle";
+        ctx.font = "bold 13px sans-serif";
+        ctx.fillText(String(p.hp), cx, cy);
       }
+    }
+
+    function updateAbilityButton() {
+      const p = currentPlayer();
+      if (!p || !game.started) {
+        abilityBtn.textContent = "Yetenek Kullan";
+        return;
+      }
+      const cfg = CHARACTERS[p.characterId];
+      const cd = p.cooldown > 0 ? ` (CD ${p.cooldown})` : "";
+      abilityBtn.textContent = `${p.abilityArmed ? "Yetenek Modu Açık" : cfg.ability}${cd}`;
     }
 
     function render() {
       drawBoard();
       drawPlayers();
 
-      const isP1 = game.turn === 1;
-      turnBadge.textContent = isP1 ? "Mavi" : "Kırmızı";
-      turnBadge.className = "badge " + (isP1 ? "p1" : "p2");
-
       const p1 = playerByTeam(1);
       const p2 = playerByTeam(2);
-      const maxHp = 6;
+      const active = currentPlayer();
+
+      turnBadge.textContent = active ? active.name : "-";
+      turnBadge.className = "badge " + (game.turn === 1 ? "p1" : "p2");
 
       document.getElementById("p1hp").textContent = p1.hp;
-      document.getElementById("p1bar").style.width = Math.max(0, (p1.hp / maxHp) * 100) + "%";
+      document.getElementById("p1bar").style.width = `${Math.max(0, (p1.hp / MAX_HP) * 100)}%`;
       document.getElementById("p1powers").innerHTML = powerSummaryHTML(p1);
 
       document.getElementById("p2hp").textContent = p2.hp;
-      document.getElementById("p2bar").style.width = Math.max(0, (p2.hp / maxHp) * 100) + "%";
+      document.getElementById("p2bar").style.width = `${Math.max(0, (p2.hp / MAX_HP) * 100)}%`;
       document.getElementById("p2powers").innerHTML = powerSummaryHTML(p2);
 
       if (game.paused) {
         statusText.textContent = "Oyun duraklatıldı.";
       } else if (game.started) {
-        statusText.textContent = "Oyun aktif.";
+        statusText.textContent = `${active.name} | ${CHARACTERS[active.characterId].label} | ${CHARACTERS[active.characterId].ability} | CD: ${active.cooldown}`;
       } else {
-        statusText.textContent = "Başlatmak için menüyü kullan.";
+        statusText.textContent = "Maç başında karakterini seç.";
       }
 
       if (isGameOver()) {
         infoText.textContent = `Oyun bitti. Kazanan: ${winnerName()}! 🏆`;
-        pauseBtn.textContent = "Duraklat";
-      }
-    }
-
-    function switchTurn() {
-      if (isGameOver()) {
-        render();
-        return;
       }
 
-      resolveAttack();
-      if (isGameOver()) {
-        render();
-        return;
-      }
-
-      game.turn = game.turn === 1 ? 2 : 1;
-      currentPlayer().moved = false;
-
-      infoText.textContent = `Sıradaki: ${currentPlayer().name}`;
-
-      render();
+      updateAbilityButton();
     }
 
     function restart() {
@@ -1005,8 +1375,7 @@
       game.paused = false;
       menuOverlay.classList.add("hidden");
       pauseBtn.textContent = "Duraklat";
-      infoText.textContent = "Oyun başladı! Hamle yapmak için yeşil karelere tıkla.";
-      updatePowerupLegend();
+      infoText.textContent = "Maç başladı. Bu tur hareket ya da yetenek seç.";
       render();
     }
 
@@ -1014,103 +1383,123 @@
       if (!game.started || isGameOver()) {
         return;
       }
-
       game.paused = !game.paused;
       pauseBtn.textContent = game.paused ? "Devam Et" : "Duraklat";
-      if (game.paused) {
-        infoText.textContent = "Oyun duraklatıldı.";
-      }
       render();
     }
 
-    function handleMoveAt(x, y) {
+    function handleMove(player, x, y) {
+      const canMove = movableTiles(player).some(m => m.x === x && m.y === y);
+      if (!canMove) {
+        infoText.textContent = "Geçersiz hareket.";
+        return false;
+      }
+
+      const originX = player.x;
+      const originY = player.y;
+      player.x = x;
+      player.y = y;
+      playSound("move");
+      consumePowerup(player);
+      applyPortalTransit(player);
+
+      checkMapTrapDamage(player);
+
+      if (checkDeadlyTrap(player)) {
+        return true;
+      }
+
+      const enemy = enemyPlayer();
+      if (enemy && player.x === enemy.x && player.y === enemy.y) {
+        if (applyShieldLogic(player, enemy)) {
+          player.x = originX;
+          player.y = originY;
+          return true;
+        }
+        enemy.hp = 0;
+        createEffect("kill", enemy.x, enemy.y, teamColor(player.team));
+        playSound("kill");
+      }
+
+      return true;
+    }
+
+    function handleAbility(player, x, y) {
+      if (!canUseAbility(player)) {
+        infoText.textContent = player.cooldown > 0
+          ? `Yetenek beklemede: ${player.cooldown} tur`
+          : "Bu tur aksiyonunu zaten kullandın.";
+        return false;
+      }
+      return executeAbility(player, x, y);
+    }
+
+    function handleBoardAction(x, y) {
       if (!game.started || game.paused || isGameOver()) {
         return;
       }
 
-      const sel = currentPlayer();
-
-      if (!sel || sel.moved) {
-        infoText.textContent = "Bu turda zaten hareket ettin.";
+      const player = currentPlayer();
+      if (player.actionDone) {
+        infoText.textContent = "Bu tur aksiyonunu kullandın.";
         return;
       }
 
-      const canMove = movableTiles(sel).some(m => m.x === x && m.y === y);
-      if (!canMove) {
-        infoText.textContent = "Geçersiz hamle.";
-        return;
-      }
+      const success = player.abilityArmed
+        ? handleAbility(player, x, y)
+        : handleMove(player, x, y);
 
-      const originX = sel.x;
-      const originY = sel.y;
-      sel.x = x;
-      sel.y = y;
-      sel.moved = true;
-      consumePowerup(sel);
-
-      if (isPlayerOnTrap(sel)) {
-        if (sel.hp <= 0) {
-          createEffect("kill", sel.x, sel.y, OBSTACLE_META.trap.color);
-          render();
-          return;
-        }
-
-        infoText.textContent = `${sel.name} tuzağa bastı!`;
-      }
-
-      // Rakibin üzerine basıldıysa rakip ölür
-      const enemy = enemyPlayer();
-      if (enemy && sel.x === enemy.x && sel.y === enemy.y) {
-        if (enemy.powers.shield) {
-          enemy.powers.shield = false;
-          enemy.hp = Math.max(1, enemy.hp);
-          sel.x = originX;
-          sel.y = originY;
-          sel.moved = false;
-          infoText.textContent = `${enemy.name} kalkanını kullandı! Hamle iptal edildi.`;
-          createEffect("shield", enemy.x, enemy.y, POWERUP_META.shield.color);
-          render();
-          switchTurn();
-          return;
-        }
-
-        enemy.hp = 0;
-        infoText.textContent = `${sel.name} rakibinin üzerine bastı!`;
-        createEffect("kill", enemy.x, enemy.y, teamColor(sel.team));
+      if (!success) {
         render();
         return;
       }
 
-      if (sel.hp <= 0) {
-        createEffect("kill", sel.x, sel.y, teamColor(sel.team));
-        render();
-        return;
-      }
-
-      switchTurn();
+      player.actionDone = true;
+      player.abilityArmed = false;
+      endTurn();
     }
 
     canvas.addEventListener("pointerdown", e => {
+      ensureAudioContext();
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
       const x = Math.floor(((e.clientX - rect.left) * scaleX) / TILE);
       const y = Math.floor(((e.clientY - rect.top) * scaleY) / TILE);
-      handleMoveAt(x, y);
+      handleBoardAction(x, y);
     });
 
-    startBtn.addEventListener("click", restart);
-    pauseBtn.addEventListener("click", togglePause);
-    resetBtn.addEventListener("click", restart);
+    startBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      playSound("button");
+      restart();
+    });
+    pauseBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      playSound("button");
+      togglePause();
+    });
+    resetBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      playSound("button");
+      restart();
+    });
+    abilityBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      playSound("button");
+      armAbility();
+    });
+    soundBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      toggleSound();
+    });
 
     function gameLoop(timestamp) {
-      const delta = lastFrameTime ? (timestamp - lastFrameTime) / 1000 : 0;
+      const dt = lastFrameTime ? (timestamp - lastFrameTime) / 1000 : 0;
       lastFrameTime = timestamp;
-
       if (game && game.started && !game.paused) {
-        updateEffect(delta);
+        updateEffect(dt);
       }
-
       render();
       requestAnimationFrame(gameLoop);
     }
