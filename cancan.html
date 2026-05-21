@@ -479,27 +479,34 @@
           </select>
         </div>
         <div class="menu-pick">
+          <label for="spawnSelect">Başlangıç Konumu</label>
+          <select id="spawnSelect">
+            <option value="fixed">Sabit (Köşe)</option>
+            <option value="random">Kontrollü Rastgele</option>
+          </select>
+        </div>
+        <div class="menu-pick">
           <label for="p1Character">Mavi Oyuncu Karakteri</label>
           <select id="p1Character">
-            <option value="minoto">Minoto (Yıkıcı)</option>
-            <option value="hunter">Hunter (Gözcü)</option>
-            <option value="builder">İnşaatçı (Mimar)</option>
-            <option value="portal">Portal (Gezgin)</option>
-            <option value="frog">Kurbağa (Sıçrayan)</option>
-            <option value="trickster">Tuzakçı (Kurnaz)</option>
-            <option value="gambler">Kumarbaz (Stratejist)</option>
+            <option value="minoto">⛏ Minoto (Yıkıcı)</option>
+            <option value="hunter">🎯 Hunter (Gözcü)</option>
+            <option value="builder">🧱 İnşaatçı (Mimar)</option>
+            <option value="portal">🌀 Portal (Gezgin)</option>
+            <option value="frog">🐸 Kurbağa (Sıçrayan)</option>
+            <option value="trickster">🎭 Tuzakçı (Kurnaz)</option>
+            <option value="gambler">🎲 Kumarbaz (Stratejist)</option>
           </select>
         </div>
         <div class="menu-pick">
           <label for="p2Character">Kırmızı Oyuncu Karakteri</label>
           <select id="p2Character">
-            <option value="hunter">Hunter (Gözcü)</option>
-            <option value="minoto">Minoto (Yıkıcı)</option>
-            <option value="builder">İnşaatçı (Mimar)</option>
-            <option value="portal">Portal (Gezgin)</option>
-            <option value="frog">Kurbağa (Sıçrayan)</option>
-            <option value="trickster">Tuzakçı (Kurnaz)</option>
-            <option value="gambler">Kumarbaz (Stratejist)</option>
+            <option value="hunter">🎯 Hunter (Gözcü)</option>
+            <option value="minoto">⛏ Minoto (Yıkıcı)</option>
+            <option value="builder">🧱 İnşaatçı (Mimar)</option>
+            <option value="portal">🌀 Portal (Gezgin)</option>
+            <option value="frog">🐸 Kurbağa (Sıçrayan)</option>
+            <option value="trickster">🎭 Tuzakçı (Kurnaz)</option>
+            <option value="gambler">🎲 Kumarbaz (Stratejist)</option>
           </select>
         </div>
       </div>
@@ -522,6 +529,7 @@
     const abilityBtn = document.getElementById("abilityBtn");
     const soundBtn = document.getElementById("soundBtn");
     const mapSelect = document.getElementById("mapSelect");
+    const spawnSelect = document.getElementById("spawnSelect");
     const p1CharacterSelect = document.getElementById("p1Character");
     const p2CharacterSelect = document.getElementById("p2Character");
 
@@ -546,43 +554,57 @@
         label: "Minoto (Yıkıcı)",
         ability: "Yıkım",
         cooldown: 2,
+        symbol: "⛏",
+        accent: "#f59e0b",
         description: "Bitişik duvarı kırar. 3 kırım sonrası kombo sürüş açılır."
       },
       hunter: {
         label: "Hunter (Gözcü)",
         ability: "Keskin Atış",
         cooldown: 2,
+        symbol: "🎯",
+        accent: "#ef4444",
         description: "Aynı satır/sütunda engel yoksa hedefi vurur."
       },
       builder: {
         label: "İnşaatçı (Mimar)",
         ability: "Duvar Kur",
         cooldown: 1,
+        symbol: "🧱",
+        accent: "#22c55e",
         description: "Bitişik boş kareye duvar yerleştirir."
       },
       portal: {
         label: "Portal (Gezgin)",
         ability: "Portal Kur",
         cooldown: 1,
+        symbol: "🌀",
+        accent: "#60a5fa",
         description: "2 portal yerleştirir; üstünden geçince diğerine gider."
       },
       frog: {
         label: "Kurbağa (Sıçrayan)",
         ability: "Sıçrama",
         cooldown: 1,
+        symbol: "🐸",
+        accent: "#84cc16",
         description: "2 kare menzile sıçrar, duvarları aşar."
       },
       trickster: {
         label: "Tuzakçı (Kurnaz)",
         ability: "Ölüm Tuzağı",
         cooldown: 2,
+        symbol: "🎭",
+        accent: "#f97316",
         description: "Tek aktif kalıcı tuzak kurar. Düşman anında ölür."
       },
       gambler: {
         label: "Kumarbaz (Stratejist)",
         ability: "Tahmin Kilidi",
-        cooldown: 1,
-        description: "2 tur sonra hedef kare tutarsa menzili kilitler, sonra 3 hasar modu açar."
+        cooldown: 2,
+        symbol: "🎲",
+        accent: "#a855f7",
+        description: "Tahmin atar ve anında 3 hasar vurur. Tekrar tahmin için 2 tur bekler."
       }
     };
 
@@ -680,6 +702,36 @@
 
     function selectedMapConfig() {
       return MAPS[mapSelect.value] || MAPS.classic;
+    }
+
+    function buildSpawnPositions() {
+      if (spawnSelect.value !== "random") {
+        return {
+          p1: { x: 0, y: 0 },
+          p2: { x: GRID - 1, y: GRID - 1 }
+        };
+      }
+
+      const p1ZoneMax = Math.max(1, Math.floor(GRID / 2) - 1);
+      const p2ZoneMin = Math.min(GRID - 1, Math.ceil(GRID / 2));
+      const minDist = Math.max(6, Math.floor(GRID * 0.75));
+
+      for (let i = 0; i < 220; i++) {
+        const p1 = { x: randomInt(p1ZoneMax + 1), y: randomInt(p1ZoneMax + 1) };
+        const p2 = {
+          x: p2ZoneMin + randomInt(GRID - p2ZoneMin),
+          y: p2ZoneMin + randomInt(GRID - p2ZoneMin)
+        };
+        const dist = Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y);
+        if (dist >= minDist) {
+          return { p1, p2 };
+        }
+      }
+
+      return {
+        p1: { x: 0, y: 0 },
+        p2: { x: GRID - 1, y: GRID - 1 }
+      };
     }
 
     function inBounds(x, y) {
@@ -856,19 +908,21 @@
       TILE = canvas.width / GRID;
       WALL_COUNT = mapCfg.walls;
       MAP_TRAP_COUNT = mapCfg.traps;
+      const spawns = buildSpawnPositions();
 
       const state = {
         turn: 1,
         started: false,
         paused: false,
         mapLabel: mapCfg.label,
+        spawnMode: spawnSelect.value,
         players: [
           {
             id: "p1",
             name: "Mavi",
             team: 1,
-            x: 0,
-            y: 0,
+            x: spawns.p1.x,
+            y: spawns.p1.y,
             hp: MAX_HP,
             actionDone: false,
             abilityArmed: false,
@@ -877,7 +931,6 @@
             trapCharges: p1Char === "trickster" ? 2 : 0,
             minotoBreaks: 0,
             minotoDashReady: false,
-            gamblerMode: "predict",
             rangeLockTurns: 0,
             powers: { speed: false, diagonal: false, jump: false, shield: false }
           },
@@ -885,8 +938,8 @@
             id: "p2",
             name: "Kırmızı",
             team: 2,
-            x: GRID - 1,
-            y: GRID - 1,
+            x: spawns.p2.x,
+            y: spawns.p2.y,
             hp: MAX_HP,
             actionDone: false,
             abilityArmed: false,
@@ -895,7 +948,6 @@
             trapCharges: p2Char === "trickster" ? 2 : 0,
             minotoBreaks: 0,
             minotoDashReady: false,
-            gamblerMode: "predict",
             rangeLockTurns: 0,
             powers: { speed: false, diagonal: false, jump: false, shield: false }
           }
@@ -915,7 +967,7 @@
 
     function powerSummaryHTML(player) {
       const pips = [];
-      pips.push(`<span class='power-pip'>${CHARACTERS[player.characterId].label}</span>`);
+      pips.push(`<span class='power-pip'>${CHARACTERS[player.characterId].symbol} ${CHARACTERS[player.characterId].label}</span>`);
       if (player.powers.speed) { pips.push("<span class='power-pip'>⚡ Hız</span>"); }
       if (player.powers.diagonal) { pips.push("<span class='power-pip'>✦ Çapraz</span>"); }
       if (player.powers.jump) { pips.push("<span class='power-pip'>↑ Atlama</span>"); }
@@ -928,10 +980,6 @@
         if (player.minotoDashReady) {
           pips.push("<span class='power-pip'>🔥 Kombo Hazır</span>");
         }
-      }
-      if (player.characterId === "gambler") {
-        const modeText = player.gamblerMode === "predict" ? "Tahmin" : "3 Hasar";
-        pips.push(`<span class='power-pip'>🎲 Mod: ${modeText}</span>`);
       }
       if (player.rangeLockTurns > 0) {
         pips.push(`<span class='power-pip'>⛓ Menzil Kilidi: ${player.rangeLockTurns}</span>`);
@@ -956,8 +1004,8 @@
       `;
     }
 
-    function createEffect(kind, x, y, color) {
-      game.effect = { kind, x, y, life: 0.5, color };
+    function createEffect(kind, x, y, color, symbol = "") {
+      game.effect = { kind, x, y, life: 0.5, color, symbol };
     }
 
     function updateEffect(dt) {
@@ -989,6 +1037,15 @@
       ctx.beginPath();
       ctx.arc(cx, cy, radius, 0, Math.PI * 2);
       ctx.stroke();
+
+      if (fx.symbol) {
+        ctx.globalAlpha = 0.95 - progress * 0.45;
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `bold ${Math.max(12, Math.round(TILE * 0.24))}px sans-serif`;
+        ctx.fillText(fx.symbol, cx, cy);
+      }
       ctx.restore();
     }
 
@@ -1100,7 +1157,7 @@
         if (target && target.x === prediction.x && target.y === prediction.y) {
           target.rangeLockTurns = Math.max(target.rangeLockTurns, 2);
           infoText.textContent = `${target.name} için menzil kilidi aktif!`;
-          createEffect("trap", target.x, target.y, "#a855f7");
+          createEffect("trap", target.x, target.y, "#a855f7", "⛓");
         }
       }
 
@@ -1148,9 +1205,6 @@
       }
       if (player.characterId === "minoto" && player.minotoDashReady) {
         return "Kombo Sürüş";
-      }
-      if (player.characterId === "gambler") {
-        return player.gamblerMode === "predict" ? "Tahmin Kilidi" : "Kritik Vuruş";
       }
       return CHARACTERS[player.characterId].ability;
     }
@@ -1201,7 +1255,7 @@
         if (hit && hit.team !== player.team) {
           if (!applyShieldLogic(player, hit)) {
             hit.hp = 0;
-            createEffect("kill", hit.x, hit.y, teamColor(player.team));
+            createEffect("kill", hit.x, hit.y, teamColor(player.team), "⚔");
           }
         }
         lastX = nx;
@@ -1237,7 +1291,7 @@
         player.minotoDashReady = true;
         infoText.textContent = "Minoto kombo sürüşünü açtı!";
       }
-      createEffect("break", x, y, "#f59e0b");
+      createEffect("break", x, y, "#f59e0b", "⛏");
       return true;
     }
 
@@ -1249,7 +1303,7 @@
       }
       if (!applyShieldLogic(player, enemy)) {
         enemy.hp = 0;
-        createEffect("kill", enemy.x, enemy.y, teamColor(player.team));
+        createEffect("kill", enemy.x, enemy.y, teamColor(player.team), "🎯");
       }
       return true;
     }
@@ -1262,7 +1316,7 @@
         return false;
       }
       game.obstacles.push({ type: "wall", x, y });
-      createEffect("build", x, y, "#22c55e");
+      createEffect("build", x, y, "#22c55e", "🧱");
       return true;
     }
 
@@ -1282,7 +1336,7 @@
         ownPortals.shift();
       }
       ownPortals.push({ x, y });
-      createEffect("portal", x, y, "#60a5fa");
+      createEffect("portal", x, y, "#60a5fa", "🌀");
       return true;
     }
 
@@ -1308,9 +1362,10 @@
           player.y = originY;
         } else {
           occ.hp = 0;
-          createEffect("kill", occ.x, occ.y, teamColor(player.team));
+          createEffect("kill", occ.x, occ.y, teamColor(player.team), "🐸");
         }
       }
+      createEffect("portal", player.x, player.y, "#84cc16", "🐸");
       return true;
     }
 
@@ -1332,44 +1387,40 @@
       }
       game.obstacles.push({ type: "deadlyTrap", ownerTeam: player.team, x, y });
       player.trapCharges -= 1;
-      createEffect("trap", x, y, "#ef4444");
+      createEffect("trap", x, y, "#ef4444", "🎭");
       return true;
     }
 
     function useGamblerAbility(player, x, y) {
       const enemy = enemyPlayer();
-      if (player.gamblerMode === "predict") {
-        if (!inBounds(x, y)) {
-          infoText.textContent = "Kumarbaz tahmini için geçerli kare seç.";
-          return false;
-        }
-        game.predictions.push({
-          ownerTeam: player.team,
-          targetTeam: enemy.team,
-          x,
-          y,
-          turnsLeft: 2
-        });
-        player.gamblerMode = "strike";
-        infoText.textContent = "Tahmin kaydedildi. 2 tur sonra kontrol edilecek.";
-        createEffect("portal", x, y, "#a855f7");
-        return true;
+      if (!inBounds(x, y)) {
+        infoText.textContent = "Kumarbaz tahmini için geçerli kare seç.";
+        return false;
       }
 
+      game.predictions.push({
+        ownerTeam: player.team,
+        targetTeam: enemy.team,
+        x,
+        y,
+        turnsLeft: 2
+      });
+      createEffect("portal", x, y, "#a855f7", "🎲");
+
       if (!sameLineAndClear(player, enemy)) {
-        infoText.textContent = "3 Hasar için düz görüş hattı gerekli.";
-        return false;
+        infoText.textContent = "Tahmin atıldı. Düz görüş olmadığı için anlık hasar vurulamadı.";
+        return true;
       }
 
       if (!applyShieldLogic(player, enemy)) {
         enemy.hp = Math.max(0, enemy.hp - 3);
         if (enemy.hp === 0) {
-          createEffect("kill", enemy.x, enemy.y, teamColor(player.team));
+          createEffect("kill", enemy.x, enemy.y, teamColor(player.team), "💥");
         } else {
-          createEffect("trap", enemy.x, enemy.y, "#fb7185");
+          createEffect("trap", enemy.x, enemy.y, "#fb7185", "💥");
         }
       }
-      player.gamblerMode = "predict";
+      infoText.textContent = "Tahmin atıldı ve anında 3 hasar vuruldu.";
       return true;
     }
 
@@ -1425,11 +1476,19 @@
       for (const team of [1, 2]) {
         const portals = game.portals[team];
         for (const portal of portals) {
+          const cx = portal.x * TILE + TILE / 2;
+          const cy = portal.y * TILE + TILE / 2;
           ctx.strokeStyle = team === 1 ? "#60a5fa" : "#f87171";
           ctx.lineWidth = 3;
           ctx.beginPath();
-          ctx.arc(portal.x * TILE + TILE / 2, portal.y * TILE + TILE / 2, TILE * 0.22, 0, Math.PI * 2);
+          ctx.arc(cx, cy, TILE * 0.22, 0, Math.PI * 2);
           ctx.stroke();
+
+          ctx.fillStyle = "#ffffff";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.font = `bold ${Math.max(11, Math.round(TILE * 0.2))}px sans-serif`;
+          ctx.fillText("🌀", cx, cy + 0.5);
         }
       }
     }
@@ -1500,6 +1559,7 @@
       for (const p of game.players) {
         const cx = p.x * TILE + TILE / 2;
         const cy = p.y * TILE + TILE / 2;
+        const character = CHARACTERS[p.characterId];
         ctx.fillStyle = teamColor(p.team);
         ctx.beginPath();
         ctx.arc(cx, cy, TILE * 0.28, 0, Math.PI * 2);
@@ -1513,11 +1573,32 @@
           ctx.stroke();
         }
 
+        ctx.strokeStyle = character.accent || "rgba(255,255,255,0.6)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, TILE * 0.24, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Character symbol in center, HP in a small corner badge.
         ctx.fillStyle = "#ffffff";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.font = "bold 13px sans-serif";
-        ctx.fillText(String(p.hp), cx, cy);
+        ctx.font = `bold ${Math.max(12, Math.round(TILE * 0.24))}px sans-serif`;
+        ctx.fillText(character.symbol || "•", cx, cy + 1);
+
+        const hpR = TILE * 0.13;
+        const hpX = cx + TILE * 0.2;
+        const hpY = cy - TILE * 0.2;
+        ctx.beginPath();
+        ctx.fillStyle = "#0f172a";
+        ctx.arc(hpX, hpY, hpR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.55)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "#ffffff";
+        ctx.font = `bold ${Math.max(9, Math.round(TILE * 0.15))}px sans-serif`;
+        ctx.fillText(String(p.hp), hpX, hpY + 0.5);
       }
     }
 
@@ -1554,7 +1635,8 @@
       if (game.paused) {
         statusText.textContent = "Oyun duraklatıldı.";
       } else if (game.started) {
-        statusText.textContent = `${game.mapLabel} ${GRID}x${GRID} | Duvar:${WALL_COUNT} Tuzak:${MAP_TRAP_COUNT} Güç:${game.powerups.length} | ${active.name} | ${CHARACTERS[active.characterId].label} | ${abilityLabelForPlayer(active)} | CD: ${active.cooldown}`;
+        const spawnText = game.spawnMode === "random" ? "Rastgele" : "Sabit";
+        statusText.textContent = `${game.mapLabel} ${GRID}x${GRID} (${spawnText}) | Duvar:${WALL_COUNT} Tuzak:${MAP_TRAP_COUNT} Güç:${game.powerups.length} | ${active.name} | ${CHARACTERS[active.characterId].label} | ${abilityLabelForPlayer(active)} | CD: ${active.cooldown}`;
       } else {
         statusText.textContent = "Maç başında karakterini seç.";
       }
