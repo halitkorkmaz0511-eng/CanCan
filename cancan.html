@@ -487,6 +487,7 @@
             <option value="portal">Portal (Gezgin)</option>
             <option value="frog">Kurbağa (Sıçrayan)</option>
             <option value="trickster">Tuzakçı (Kurnaz)</option>
+            <option value="gambler">Kumarbaz (Stratejist)</option>
           </select>
         </div>
         <div class="menu-pick">
@@ -498,6 +499,7 @@
             <option value="portal">Portal (Gezgin)</option>
             <option value="frog">Kurbağa (Sıçrayan)</option>
             <option value="trickster">Tuzakçı (Kurnaz)</option>
+            <option value="gambler">Kumarbaz (Stratejist)</option>
           </select>
         </div>
       </div>
@@ -544,7 +546,7 @@
         label: "Minoto (Yıkıcı)",
         ability: "Yıkım",
         cooldown: 2,
-        description: "Bitişik duvarı kırar."
+        description: "Bitişik duvarı kırar. 3 kırım sonrası kombo sürüş açılır."
       },
       hunter: {
         label: "Hunter (Gözcü)",
@@ -575,6 +577,12 @@
         ability: "Ölüm Tuzağı",
         cooldown: 2,
         description: "Tek aktif kalıcı tuzak kurar. Düşman anında ölür."
+      },
+      gambler: {
+        label: "Kumarbaz (Stratejist)",
+        ability: "Tahmin Kilidi",
+        cooldown: 1,
+        description: "2 tur sonra hedef kare tutarsa menzili kilitler, sonra 3 hasar modu açar."
       }
     };
 
@@ -739,6 +747,9 @@
     }
 
     function moveRange(player) {
+      if (player.rangeLockTurns > 0) {
+        return 1;
+      }
       return player.powers.speed ? 2 : 1;
     }
 
@@ -864,6 +875,10 @@
             cooldown: 0,
             characterId: p1Char,
             trapCharges: p1Char === "trickster" ? 2 : 0,
+            minotoBreaks: 0,
+            minotoDashReady: false,
+            gamblerMode: "predict",
+            rangeLockTurns: 0,
             powers: { speed: false, diagonal: false, jump: false, shield: false }
           },
           {
@@ -878,13 +893,18 @@
             cooldown: 0,
             characterId: p2Char,
             trapCharges: p2Char === "trickster" ? 2 : 0,
+            minotoBreaks: 0,
+            minotoDashReady: false,
+            gamblerMode: "predict",
+            rangeLockTurns: 0,
             powers: { speed: false, diagonal: false, jump: false, shield: false }
           }
         ],
         obstacles: [],
         powerups: [],
         effect: null,
-        portals: { 1: [], 2: [] }
+        portals: { 1: [], 2: [] },
+        predictions: []
       };
 
       placeWalls(state);
@@ -902,6 +922,19 @@
       if (player.powers.shield) { pips.push("<span class='power-pip'>🛡 Kalkan</span>"); }
       if (player.characterId === "trickster") {
         pips.push(`<span class='power-pip'>🕳 Tuzak: ${player.trapCharges}</span>`);
+      }
+      if (player.characterId === "minoto") {
+        pips.push(`<span class='power-pip'>🧱 Kırım: ${player.minotoBreaks}/3</span>`);
+        if (player.minotoDashReady) {
+          pips.push("<span class='power-pip'>🔥 Kombo Hazır</span>");
+        }
+      }
+      if (player.characterId === "gambler") {
+        const modeText = player.gamblerMode === "predict" ? "Tahmin" : "3 Hasar";
+        pips.push(`<span class='power-pip'>🎲 Mod: ${modeText}</span>`);
+      }
+      if (player.rangeLockTurns > 0) {
+        pips.push(`<span class='power-pip'>⛓ Menzil Kilidi: ${player.rangeLockTurns}</span>`);
       }
       return pips.join("");
     }
@@ -1050,13 +1083,41 @@
       return true;
     }
 
+    function resolvePredictionsTick() {
+      if (!game.predictions || game.predictions.length === 0) {
+        return;
+      }
+
+      const remaining = [];
+      for (const prediction of game.predictions) {
+        prediction.turnsLeft -= 1;
+        if (prediction.turnsLeft > 0) {
+          remaining.push(prediction);
+          continue;
+        }
+
+        const target = playerByTeam(prediction.targetTeam);
+        if (target && target.x === prediction.x && target.y === prediction.y) {
+          target.rangeLockTurns = Math.max(target.rangeLockTurns, 2);
+          infoText.textContent = `${target.name} için menzil kilidi aktif!`;
+          createEffect("trap", target.x, target.y, "#a855f7");
+        }
+      }
+
+      game.predictions = remaining;
+    }
+
     function startNextTurn() {
       game.turn = game.turn === 1 ? 2 : 1;
+      resolvePredictionsTick();
       const player = currentPlayer();
       player.actionDone = false;
       player.abilityArmed = false;
       if (player.cooldown > 0) {
         player.cooldown -= 1;
+      }
+      if (player.rangeLockTurns > 0) {
+        player.rangeLockTurns -= 1;
       }
       infoText.textContent = `Sıradaki: ${player.name}`;
     }
@@ -1081,6 +1142,19 @@
       return player.cooldown === 0 && !player.actionDone;
     }
 
+    function abilityLabelForPlayer(player) {
+      if (!player) {
+        return "Yetenek";
+      }
+      if (player.characterId === "minoto" && player.minotoDashReady) {
+        return "Kombo Sürüş";
+      }
+      if (player.characterId === "gambler") {
+        return player.gamblerMode === "predict" ? "Tahmin Kilidi" : "Kritik Vuruş";
+      }
+      return CHARACTERS[player.characterId].ability;
+    }
+
     function armAbility() {
       const player = currentPlayer();
       if (!game.started || game.paused || isGameOver()) {
@@ -1095,7 +1169,7 @@
 
       player.abilityArmed = !player.abilityArmed;
       infoText.textContent = player.abilityArmed
-        ? `${CHARACTERS[player.characterId].ability} hedefini seç.`
+        ? `${abilityLabelForPlayer(player)} hedefini seç.`
         : "Yetenek modu kapatıldı.";
       render();
     }
@@ -1107,7 +1181,49 @@
       return !lineIntersectsWall(a.x, a.y, b.x, b.y);
     }
 
+    function useMinotoDash(player, x, y) {
+      const rawDx = x - player.x;
+      const rawDy = y - player.y;
+      if (Math.max(Math.abs(rawDx), Math.abs(rawDy)) !== 1 || (rawDx !== 0 && rawDy !== 0)) {
+        infoText.textContent = "Kombo sürüş için bitişik yön karesi seç.";
+        return false;
+      }
+
+      const stepX = Math.sign(rawDx);
+      const stepY = Math.sign(rawDy);
+      let nx = player.x + stepX;
+      let ny = player.y + stepY;
+      let lastX = player.x;
+      let lastY = player.y;
+
+      while (inBounds(nx, ny) && !isWallAt(nx, ny)) {
+        const hit = getPlayerAt(nx, ny);
+        if (hit && hit.team !== player.team) {
+          if (!applyShieldLogic(player, hit)) {
+            hit.hp = 0;
+            createEffect("kill", hit.x, hit.y, teamColor(player.team));
+          }
+        }
+        lastX = nx;
+        lastY = ny;
+        nx += stepX;
+        ny += stepY;
+      }
+
+      player.x = lastX;
+      player.y = lastY;
+      player.minotoDashReady = false;
+      consumePowerup(player);
+      checkMapTrapDamage(player);
+      checkDeadlyTrap(player);
+      return true;
+    }
+
     function useMinotoAbility(player, x, y) {
+      if (player.minotoDashReady) {
+        return useMinotoDash(player, x, y);
+      }
+
       const dx = Math.abs(player.x - x);
       const dy = Math.abs(player.y - y);
       if (Math.max(dx, dy) !== 1 || !isWallAt(x, y)) {
@@ -1115,6 +1231,12 @@
         return false;
       }
       game.obstacles = game.obstacles.filter(o => !(o.type === "wall" && o.x === x && o.y === y));
+      player.minotoBreaks += 1;
+      if (player.minotoBreaks >= 3) {
+        player.minotoBreaks = 0;
+        player.minotoDashReady = true;
+        infoText.textContent = "Minoto kombo sürüşünü açtı!";
+      }
       createEffect("break", x, y, "#f59e0b");
       return true;
     }
@@ -1214,6 +1336,43 @@
       return true;
     }
 
+    function useGamblerAbility(player, x, y) {
+      const enemy = enemyPlayer();
+      if (player.gamblerMode === "predict") {
+        if (!inBounds(x, y)) {
+          infoText.textContent = "Kumarbaz tahmini için geçerli kare seç.";
+          return false;
+        }
+        game.predictions.push({
+          ownerTeam: player.team,
+          targetTeam: enemy.team,
+          x,
+          y,
+          turnsLeft: 2
+        });
+        player.gamblerMode = "strike";
+        infoText.textContent = "Tahmin kaydedildi. 2 tur sonra kontrol edilecek.";
+        createEffect("portal", x, y, "#a855f7");
+        return true;
+      }
+
+      if (!sameLineAndClear(player, enemy)) {
+        infoText.textContent = "3 Hasar için düz görüş hattı gerekli.";
+        return false;
+      }
+
+      if (!applyShieldLogic(player, enemy)) {
+        enemy.hp = Math.max(0, enemy.hp - 3);
+        if (enemy.hp === 0) {
+          createEffect("kill", enemy.x, enemy.y, teamColor(player.team));
+        } else {
+          createEffect("trap", enemy.x, enemy.y, "#fb7185");
+        }
+      }
+      player.gamblerMode = "predict";
+      return true;
+    }
+
     function executeAbility(player, x, y) {
       const cfg = CHARACTERS[player.characterId];
       const handlers = {
@@ -1222,7 +1381,8 @@
         builder: () => useBuilderAbility(player, x, y),
         portal: () => usePortalAbility(player, x, y),
         frog: () => useFrogAbility(player, x, y),
-        trickster: () => useTricksterAbility(player, x, y)
+        trickster: () => useTricksterAbility(player, x, y),
+        gambler: () => useGamblerAbility(player, x, y)
       };
 
       const handler = handlers[player.characterId];
@@ -1367,9 +1527,9 @@
         abilityBtn.textContent = "Yetenek Kullan";
         return;
       }
-      const cfg = CHARACTERS[p.characterId];
+      const abilityLabel = abilityLabelForPlayer(p);
       const cd = p.cooldown > 0 ? ` (CD ${p.cooldown})` : "";
-      abilityBtn.textContent = `${p.abilityArmed ? "Yetenek Modu Açık" : cfg.ability}${cd}`;
+      abilityBtn.textContent = `${p.abilityArmed ? "Yetenek Modu Açık" : abilityLabel}${cd}`;
     }
 
     function render() {
@@ -1394,7 +1554,7 @@
       if (game.paused) {
         statusText.textContent = "Oyun duraklatıldı.";
       } else if (game.started) {
-        statusText.textContent = `${game.mapLabel} ${GRID}x${GRID} | Duvar:${WALL_COUNT} Tuzak:${MAP_TRAP_COUNT} Güç:${game.powerups.length} | ${active.name} | ${CHARACTERS[active.characterId].label} | ${CHARACTERS[active.characterId].ability} | CD: ${active.cooldown}`;
+        statusText.textContent = `${game.mapLabel} ${GRID}x${GRID} | Duvar:${WALL_COUNT} Tuzak:${MAP_TRAP_COUNT} Güç:${game.powerups.length} | ${active.name} | ${CHARACTERS[active.characterId].label} | ${abilityLabelForPlayer(active)} | CD: ${active.cooldown}`;
       } else {
         statusText.textContent = "Maç başında karakterini seç.";
       }
