@@ -448,7 +448,7 @@
   <section class="seo-content" aria-label="CanCan oyunu hakkında">
     <h2>CanCan 2D Strateji Oyunu</h2>
     <p>
-      CanCan, tarayıcıda oynanan ücretsiz bir 2D strateji oyunudur. 10x10 kare tabanlı haritada
+      CanCan, tarayıcıda oynanan ücretsiz bir 2D strateji oyunudur. Farklı harita boyutlarında
       Mavi ve Kırmızı oyuncular sırayla hareket eder. Amaç, rakibin bulunduğu kareye ulaşarak oyunu kazanmaktır.
     </p>
     <h2>Nasıl Oynanır?</h2>
@@ -465,10 +465,19 @@
       <div class="menu-kicker">Yeni 2D Strateji Oyunu</div>
       <div class="menu-title">Cancan</div>
       <div class="menu-subtitle">
-        10x10 haritada Mavi ve Kırmızı çarpışır.<br>
+        Haritayı ve karakterleri seç, sonra savaşa başla.<br>
         Güçleri topla, tuzaklardan kaç ve rakibinin karesine basarak kazan.
       </div>
       <div class="menu-picks">
+        <div class="menu-pick">
+          <label for="mapSelect">Harita Seçimi</label>
+          <select id="mapSelect">
+            <option value="classic">Klasik (10x10)</option>
+            <option value="wide">Geniş Alan (12x12)</option>
+            <option value="maze">Labirent (14x14)</option>
+            <option value="epic">Büyük Savaş (16x16)</option>
+          </select>
+        </div>
         <div class="menu-pick">
           <label for="p1Character">Mavi Oyuncu Karakteri</label>
           <select id="p1Character">
@@ -510,16 +519,25 @@
     const resetBtn = document.getElementById("resetBtn");
     const abilityBtn = document.getElementById("abilityBtn");
     const soundBtn = document.getElementById("soundBtn");
+    const mapSelect = document.getElementById("mapSelect");
     const p1CharacterSelect = document.getElementById("p1Character");
     const p2CharacterSelect = document.getElementById("p2Character");
 
-    const GRID = 10;
-    const TILE = canvas.width / GRID;
-    const WALL_COUNT = 14;
-    const MAP_TRAP_COUNT = 3;
+    let GRID = 10;
+    let TILE = canvas.width / GRID;
+    let WALL_COUNT = 14;
+    let MAP_TRAP_COUNT = 3;
     const MAP_TRAP_DAMAGE = 3;
+    const PORTAL_MAX_RANGE = 6;
     const MAX_HP = 6;
-    const POWERUP_TYPES = ["speed", "diagonal", "jump", "shield", "heal"];
+    const BASE_POWERUP_TYPES = ["speed", "diagonal", "jump", "shield", "heal"];
+
+    const MAPS = {
+      classic: { label: "Klasik", grid: 10, walls: 14, traps: 3, powerups: 3 },
+      wide: { label: "Geniş Alan", grid: 12, walls: 20, traps: 4, powerups: 4 },
+      maze: { label: "Labirent", grid: 14, walls: 30, traps: 5, powerups: 5 },
+      epic: { label: "Büyük Savaş", grid: 16, walls: 40, traps: 6, powerups: 6 }
+    };
 
     const CHARACTERS = {
       minoto: {
@@ -549,8 +567,8 @@
       frog: {
         label: "Kurbağa (Sıçrayan)",
         ability: "Sıçrama",
-        cooldown: 2,
-        description: "3 kare menzile sıçrar, duvarları aşar."
+        cooldown: 1,
+        description: "2 kare menzile sıçrar, duvarları aşar."
       },
       trickster: {
         label: "Tuzakçı (Kurnaz)",
@@ -650,6 +668,10 @@
 
     function randomInt(max) {
       return Math.floor(Math.random() * max);
+    }
+
+    function selectedMapConfig() {
+      return MAPS[mapSelect.value] || MAPS.classic;
     }
 
     function inBounds(x, y) {
@@ -793,9 +815,11 @@
       }
     }
 
-    function placePowerups(state) {
+    function placePowerups(state, mapCfg) {
+      const desiredCount = mapCfg.powerups;
       const placed = [];
-      for (const type of POWERUP_TYPES) {
+      for (let i = 0; i < desiredCount; i++) {
+        const type = BASE_POWERUP_TYPES[i % BASE_POWERUP_TYPES.length];
         let ok = false;
         let x = 0;
         let y = 0;
@@ -815,11 +839,18 @@
     function newGameState() {
       const p1Char = p1CharacterSelect.value;
       const p2Char = p2CharacterSelect.value;
+      const mapCfg = selectedMapConfig();
+
+      GRID = mapCfg.grid;
+      TILE = canvas.width / GRID;
+      WALL_COUNT = mapCfg.walls;
+      MAP_TRAP_COUNT = mapCfg.traps;
 
       const state = {
         turn: 1,
         started: false,
         paused: false,
+        mapLabel: mapCfg.label,
         players: [
           {
             id: "p1",
@@ -858,7 +889,7 @@
 
       placeWalls(state);
       placeMapTraps(state);
-      placePowerups(state);
+      placePowerups(state, mapCfg);
       return state;
     }
 
@@ -1118,6 +1149,12 @@
         infoText.textContent = "Portal boş kareye kurulmalı.";
         return false;
       }
+      const dx = Math.abs(player.x - x);
+      const dy = Math.abs(player.y - y);
+      if (Math.max(dx, dy) > PORTAL_MAX_RANGE) {
+        infoText.textContent = `Portal en fazla ${PORTAL_MAX_RANGE} kare uzağa kurulabilir.`;
+        return false;
+      }
       const ownPortals = game.portals[player.team];
       if (ownPortals.length === 2) {
         ownPortals.shift();
@@ -1130,8 +1167,8 @@
     function useFrogAbility(player, x, y) {
       const dx = Math.abs(player.x - x);
       const dy = Math.abs(player.y - y);
-      if (!inBounds(x, y) || Math.max(dx, dy) > 3 || isWallAt(x, y)) {
-        infoText.textContent = "Kurbağa en fazla 3 kare sıçrayabilir.";
+      if (!inBounds(x, y) || Math.max(dx, dy) > 2 || isWallAt(x, y)) {
+        infoText.textContent = "Kurbağa en fazla 2 kare sıçrayabilir.";
         return false;
       }
       const occ = getPlayerAt(x, y);
@@ -1357,7 +1394,7 @@
       if (game.paused) {
         statusText.textContent = "Oyun duraklatıldı.";
       } else if (game.started) {
-        statusText.textContent = `${active.name} | ${CHARACTERS[active.characterId].label} | ${CHARACTERS[active.characterId].ability} | CD: ${active.cooldown}`;
+        statusText.textContent = `${game.mapLabel} ${GRID}x${GRID} | Duvar:${WALL_COUNT} Tuzak:${MAP_TRAP_COUNT} Güç:${game.powerups.length} | ${active.name} | ${CHARACTERS[active.characterId].label} | ${CHARACTERS[active.characterId].ability} | CD: ${active.cooldown}`;
       } else {
         statusText.textContent = "Maç başında karakterini seç.";
       }
