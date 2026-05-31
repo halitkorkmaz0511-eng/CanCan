@@ -714,6 +714,9 @@
     const PORTAL_MAX_RANGE = 6;
     const MAX_HP = 6;
     const BASE_POWERUP_TYPES = ["speed", "diagonal", "jump", "shield", "heal"];
+    const POWERUP_SPAWN_INTERVAL = 3;
+    const POWERUP_WARNING_TURNS = 1;
+    const POWERUP_MIN_PLAYER_DIST = 3;
 
     const MAPS = {
       classic: { label: "Klasik", grid: 10, walls: 14, traps: 3, powerups: 3 },
@@ -1174,25 +1177,111 @@
       }
     }
 
-    function placePowerups(state, mapCfg) {
-      const desiredCount = mapCfg.powerups;
-      const placed = [];
-      for (let i = 0; i < desiredCount; i++) {
-        const type = BASE_POWERUP_TYPES[i % BASE_POWERUP_TYPES.length];
-        let ok = false;
-        let x = 0;
-        let y = 0;
-        while (!ok) {
-          x = randomInt(GRID);
-          y = randomInt(GRID);
-          const blocked = state.obstacles.some(o => o.x === x && o.y === y);
-          const occupied = state.players.some(p => p.x === x && p.y === y);
-          const dup = placed.some(p => p.x === x && p.y === y);
-          ok = !blocked && !occupied && !dup;
-        }
-        placed.push({ type, x, y });
+    function distanceManhattan(ax, ay, bx, by) {
+      return Math.abs(ax - bx) + Math.abs(ay - by);
+    }
+
+    function isBlockedForPowerup(state, x, y) {
+      if (state.obstacles.some(o => o.x === x && o.y === y)) {
+        return true;
       }
-      state.powerups = placed;
+      if (state.players.some(p => p.x === x && p.y === y)) {
+        return true;
+      }
+      if (state.powerups.some(p => p.x === x && p.y === y)) {
+        return true;
+      }
+      return state.pendingPowerups.some(p => p.x === x && p.y === y);
+    }
+
+    function pickBalancedPowerupTiles(state, desiredCount, minDist) {
+      const p1 = state.players[0];
+      const p2 = state.players[1];
+      const candidates = [];
+
+      for (let y = 0; y < GRID; y++) {
+        for (let x = 0; x < GRID; x++) {
+          if (isBlockedForPowerup(state, x, y)) {
+            continue;
+          }
+          const d1 = distanceManhattan(x, y, p1.x, p1.y);
+          const d2 = distanceManhattan(x, y, p2.x, p2.y);
+          if (d1 < minDist || d2 < minDist) {
+            continue;
+          }
+          candidates.push({ x, y, d1, d2, diff: Math.abs(d1 - d2), sum: d1 + d2 });
+        }
+      }
+
+      candidates.sort((a, b) => {
+        if (a.diff !== b.diff) {
+          return a.diff - b.diff;
+        }
+        return a.sum - b.sum;
+      });
+
+      const picked = [];
+      for (const candidate of candidates) {
+        const tooClose = picked.some(tile => distanceManhattan(tile.x, tile.y, candidate.x, candidate.y) < 2);
+        if (tooClose) {
+          continue;
+        }
+        picked.push({ x: candidate.x, y: candidate.y });
+        if (picked.length >= desiredCount) {
+          break;
+        }
+      }
+
+      return picked;
+    }
+
+    function schedulePowerupWave(state, desiredCount) {
+      const freeSlots = state.powerupRules.maxActive - (state.powerups.length + state.pendingPowerups.length);
+      const count = Math.max(0, Math.min(desiredCount, freeSlots));
+      if (count <= 0) {
+        return;
+      }
+
+      const tiles = pickBalancedPowerupTiles(state, count, state.powerupRules.minDist);
+      for (const tile of tiles) {
+        const type = BASE_POWERUP_TYPES[randomInt(BASE_POWERUP_TYPES.length)];
+        state.pendingPowerups.push({
+          x: tile.x,
+          y: tile.y,
+          type,
+          turnsLeft: state.powerupRules.warningTurns
+        });
+      }
+    }
+
+    function tickPendingPowerups(state) {
+      if (!state.pendingPowerups.length) {
+        return;
+      }
+      const remaining = [];
+      for (const pending of state.pendingPowerups) {
+        pending.turnsLeft -= 1;
+        if (pending.turnsLeft > 0) {
+          remaining.push(pending);
+          continue;
+        }
+        const blockedByObject = state.obstacles.some(o => o.x === pending.x && o.y === pending.y);
+        const blockedByPlayer = state.players.some(p => p.x === pending.x && p.y === pending.y);
+        const blockedByPowerup = state.powerups.some(p => p.x === pending.x && p.y === pending.y);
+        if (blockedByObject || blockedByPlayer || blockedByPowerup) {
+          continue;
+        }
+        state.powerups.push({ x: pending.x, y: pending.y, type: pending.type });
+      }
+      state.pendingPowerups = remaining;
+    }
+
+    function processPowerupTurn(state) {
+      state.turnNumber += 1;
+      tickPendingPowerups(state);
+      if (state.turnNumber % state.powerupRules.interval === 0) {
+        schedulePowerupWave(state, 1);
+      }
     }
 
     function newGameState() {
@@ -1212,6 +1301,14 @@
         paused: false,
         mapLabel: mapCfg.label,
         spawnMode: spawnSelect.value,
+        turnNumber: 1,
+        pendingPowerups: [],
+        powerupRules: {
+          interval: POWERUP_SPAWN_INTERVAL,
+          warningTurns: POWERUP_WARNING_TURNS,
+          minDist: POWERUP_MIN_PLAYER_DIST,
+          maxActive: mapCfg.powerups
+        },
         players: [
           {
             id: "p1",
@@ -1230,6 +1327,7 @@
             rangeLockTurns: 0,
             freeActionAfterAbility: false,
             abilityUsedThisTurn: false,
+            pendingPowerup: null,
             powers: { speed: false, diagonal: false, jump: false, shield: false }
           },
           {
@@ -1249,6 +1347,7 @@
             rangeLockTurns: 0,
             freeActionAfterAbility: false,
             abilityUsedThisTurn: false,
+            pendingPowerup: null,
             powers: { speed: false, diagonal: false, jump: false, shield: false }
           }
         ],
@@ -1261,7 +1360,7 @@
 
       placeWalls(state);
       placeMapTraps(state);
-      placePowerups(state, mapCfg);
+      schedulePowerupWave(state, mapCfg.powerups);
       return state;
     }
 
@@ -1300,6 +1399,8 @@
       }
 
       hint.innerHTML = `
+        Güçler <strong>3 turda 1</strong> dengeli bölgelerde işaretlenir.<br>
+        İşaretli kareye gelen oyuncu <strong>1 tur mühür açar</strong>.<br><br>
         <strong>⚡ H</strong> Hız — 2 kare hareket<br>
         <strong>✦ Ç</strong> Çapraz — çapraz yönler açılır<br>
         <strong>↑ A</strong> Atlama — engel aşma<br>
@@ -1364,15 +1465,7 @@
       return alive ? alive.name : "Berabere";
     }
 
-    function consumePowerup(player) {
-      const idx = game.powerups.findIndex(p => p.x === player.x && p.y === player.y);
-      if (idx === -1) {
-        return;
-      }
-
-      const picked = game.powerups[idx];
-      game.powerups.splice(idx, 1);
-
+    function applyPowerupToPlayer(player, picked) {
       if (picked.type === "heal") {
         player.hp = Math.min(MAX_HP, player.hp + 2);
         infoText.textContent = `${player.name} iyileşme aldı!`;
@@ -1385,6 +1478,53 @@
       infoText.textContent = `${player.name} ${POWERUP_META[picked.type].label} gücünü aldı!`;
       createEffect("powerup", player.x, player.y, POWERUP_META[picked.type].color);
       playSound("powerup");
+    }
+
+    function resolvePendingPowerupForPlayer(player) {
+      const pending = player.pendingPowerup;
+      if (!pending || player.hp <= 0) {
+        player.pendingPowerup = null;
+        return false;
+      }
+
+      if (player.x !== pending.x || player.y !== pending.y) {
+        player.pendingPowerup = null;
+        return false;
+      }
+
+      const idx = game.powerups.findIndex(p => p.x === pending.x && p.y === pending.y && p.type === pending.type);
+      if (idx === -1) {
+        player.pendingPowerup = null;
+        return false;
+      }
+
+      const picked = game.powerups[idx];
+      game.powerups.splice(idx, 1);
+      player.pendingPowerup = null;
+      applyPowerupToPlayer(player, picked);
+      return true;
+    }
+
+    function startPowerupCaptureIfAny(player) {
+      const idx = game.powerups.findIndex(p => p.x === player.x && p.y === player.y);
+      if (idx === -1) {
+        player.pendingPowerup = null;
+        return;
+      }
+
+      const target = game.powerups[idx];
+      if (
+        player.pendingPowerup
+        && player.pendingPowerup.x === target.x
+        && player.pendingPowerup.y === target.y
+        && player.pendingPowerup.type === target.type
+      ) {
+        return;
+      }
+
+      player.pendingPowerup = { x: target.x, y: target.y, type: target.type };
+      infoText.textContent = `${player.name} ${POWERUP_META[target.type].label} için mührü açmaya başladı. 1 tur dayan!`;
+      createEffect("powerup", target.x, target.y, POWERUP_META[target.type].color, "⏳");
     }
 
     function applyShieldLogic(attacker, defender) {
@@ -1474,6 +1614,7 @@
 
     function startNextTurn() {
       game.turn = game.turn === 1 ? 2 : 1;
+      processPowerupTurn(game);
       resolvePredictionsTick();
       const player = currentPlayer();
       player.actionDone = false;
@@ -1486,7 +1627,10 @@
       if (player.rangeLockTurns > 0) {
         player.rangeLockTurns -= 1;
       }
-      infoText.textContent = `Sıradaki: ${player.name}`;
+      const gainedPowerup = resolvePendingPowerupForPlayer(player);
+      if (!gainedPowerup) {
+        infoText.textContent = `Sıradaki: ${player.name}`;
+      }
     }
 
     function endTurn() {
@@ -1581,9 +1725,10 @@
       player.x = lastX;
       player.y = lastY;
       player.minotoDashReady = false;
-      consumePowerup(player);
       checkMapTrapDamage(player);
-      checkDeadlyTrap(player);
+      if (!checkDeadlyTrap(player)) {
+        startPowerupCaptureIfAny(player);
+      }
       return true;
     }
 
@@ -1862,6 +2007,32 @@
       }
     }
 
+    function drawPendingPowerups() {
+      for (const pending of game.pendingPowerups) {
+        const cx = pending.x * TILE + TILE / 2;
+        const cy = pending.y * TILE + TILE / 2;
+        const meta = POWERUP_META[pending.type];
+
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = meta.color;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(pending.x * TILE + 4, pending.y * TILE + 4, TILE - 8, TILE - 8);
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = "rgba(248,250,252,0.92)";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `bold ${Math.max(9, Math.round(TILE * 0.14))}px sans-serif`;
+        ctx.fillText(`+${pending.turnsLeft}`, cx, cy - TILE * 0.1);
+
+        ctx.fillStyle = meta.color;
+        ctx.font = `bold ${Math.max(10, Math.round(TILE * 0.18))}px sans-serif`;
+        ctx.fillText(meta.symbol, cx, cy + TILE * 0.15);
+        ctx.restore();
+      }
+    }
+
     function drawCoordinates() {
       if (!viewState.showCoords) {
         return;
@@ -2009,6 +2180,7 @@
       drawObstacles();
       drawPortals();
       drawPredictions();
+      drawPendingPowerups();
       drawPowerups();
       drawMoveHints();
       drawDangerOverlay();
@@ -2060,6 +2232,12 @@
         ctx.fillStyle = "#ffffff";
         ctx.font = `bold ${Math.max(9, Math.round(TILE * 0.15))}px sans-serif`;
         ctx.fillText(String(p.hp), hpX, hpY + 0.5);
+
+        if (p.pendingPowerup) {
+          ctx.fillStyle = "#f8fafc";
+          ctx.font = `bold ${Math.max(9, Math.round(TILE * 0.16))}px sans-serif`;
+          ctx.fillText("⏳", cx - TILE * 0.21, cy - TILE * 0.2);
+        }
       }
     }
 
@@ -2099,7 +2277,7 @@
       } else if (game.started) {
         const spawnText = game.spawnMode === "random" ? "Rastgele" : "Sabit";
         const viewFlags = `Tehlike:${viewState.showDanger ? "Aç" : "Kap"} Koord:${viewState.showCoords ? "Aç" : "Kap"} RK:${viewState.colorblindMode ? "Aç" : "Kap"}`;
-        statusText.textContent = `${game.mapLabel} ${GRID}x${GRID} (${spawnText}) | Duvar:${WALL_COUNT} Tuzak:${MAP_TRAP_COUNT} Güç:${game.powerups.length} | ${active.name} | ${CHARACTERS[active.characterId].label} | ${abilityLabelForPlayer(active)} | CD: ${active.cooldown} | ${viewFlags}`;
+        statusText.textContent = `${game.mapLabel} ${GRID}x${GRID} (${spawnText}) | Tur:${game.turnNumber} | Duvar:${WALL_COUNT} Tuzak:${MAP_TRAP_COUNT} Güç:${game.powerups.length} Bekleyen:${game.pendingPowerups.length} | ${active.name} | ${CHARACTERS[active.characterId].label} | ${abilityLabelForPlayer(active)} | CD: ${active.cooldown} | ${viewFlags}`;
       } else {
         statusText.textContent = "Maç başında karakterini seç.";
       }
@@ -2146,7 +2324,6 @@
       player.x = x;
       player.y = y;
       playSound("move");
-      consumePowerup(player);
       applyPortalTransit(player);
 
       checkMapTrapDamage(player);
@@ -2166,6 +2343,8 @@
         createEffect("kill", enemy.x, enemy.y, teamColor(player.team));
         playSound("kill");
       }
+
+      startPowerupCaptureIfAny(player);
 
       return true;
     }
