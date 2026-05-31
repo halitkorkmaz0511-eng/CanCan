@@ -352,6 +352,135 @@
       font-weight: 700;
     }
 
+    .char-tip {
+      margin-top: 8px;
+      font-size: 0.75rem;
+      color: #cbd5e1;
+      line-height: 1.5;
+      padding: 8px 10px;
+      border: 1px solid var(--surface-border);
+      border-radius: 10px;
+      background: rgba(15,23,42,0.65);
+    }
+
+    .combat-log {
+      margin-top: 12px;
+      border: 1px solid var(--surface-border);
+      border-radius: 10px;
+      background: rgba(15,23,42,0.65);
+      padding: 10px;
+    }
+
+    .combat-log-title {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 8px;
+      font-weight: 800;
+    }
+
+    .combat-log-list {
+      list-style: none;
+      max-height: 120px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .combat-log-list li {
+      font-size: 0.76rem;
+      color: #e2e8f0;
+      line-height: 1.4;
+      border-left: 2px solid rgba(148,163,184,0.45);
+      padding-left: 7px;
+    }
+
+    .combat-log-list li.log-combat {
+      border-left-color: rgba(248,113,113,0.9);
+      color: #fecaca;
+    }
+
+    .combat-log-list li.log-buff {
+      border-left-color: rgba(74,222,128,0.9);
+      color: #bbf7d0;
+    }
+
+    .combat-log-list li.log-control {
+      border-left-color: rgba(192,132,252,0.9);
+      color: #e9d5ff;
+    }
+
+    .combat-log-list li.log-system {
+      border-left-color: rgba(148,163,184,0.9);
+      color: #cbd5e1;
+    }
+
+    .smart-tip {
+      margin-top: 8px;
+      font-size: 0.75rem;
+      line-height: 1.45;
+      padding: 8px 10px;
+      border: 1px solid var(--surface-border);
+      border-radius: 10px;
+      background: rgba(15,23,42,0.65);
+      color: #e2e8f0;
+    }
+
+    .help-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      background: rgba(2, 6, 23, 0.72);
+      z-index: 25;
+      padding: 20px;
+    }
+
+    .help-overlay.visible {
+      display: grid;
+    }
+
+    .help-card {
+      width: min(520px, 100%);
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(15,23,42,0.94);
+      box-shadow: 0 22px 80px rgba(0,0,0,0.5);
+      padding: 18px 18px 14px;
+    }
+
+    .help-title {
+      font-size: 1rem;
+      font-weight: 900;
+      margin-bottom: 10px;
+      letter-spacing: 0.05em;
+    }
+
+    .help-list {
+      list-style: none;
+      display: grid;
+      gap: 8px;
+      color: #cbd5e1;
+      font-size: 0.87rem;
+      line-height: 1.45;
+      margin-bottom: 12px;
+    }
+
+    .kbd {
+      display: inline-block;
+      min-width: 22px;
+      padding: 1px 6px;
+      border-radius: 6px;
+      background: #0f172a;
+      border: 1px solid rgba(148,163,184,0.45);
+      color: #f8fafc;
+      font-weight: 700;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+
     @keyframes rise {
       from { transform: translateY(12px); opacity: 0; }
       to   { transform: translateY(0);    opacity: 1; }
@@ -429,8 +558,13 @@
 
       <div class="btns">
         <button id="abilityBtn">Yetenek Kullan</button>
+        <button id="skipTurnBtn" class="button-secondary">Turu Geç</button>
+        <button id="dangerBtn" class="button-secondary">Tehlike: Kapalı</button>
+        <button id="coordsBtn" class="button-secondary">Koordinat: Açık</button>
+        <button id="colorblindBtn" class="button-secondary">Renk Körü: Kapalı</button>
         <button id="soundBtn" class="button-secondary">Ses: Açık</button>
         <button id="pauseBtn" class="button-secondary">Duraklat</button>
+        <button id="helpBtn" class="button-secondary">Yardım</button>
         <button id="resetBtn">Yeniden Başlat</button>
       </div>
 
@@ -441,6 +575,16 @@
         <strong>🛡 Kalkan</strong> — bir ölümcül darbeyi engeller<br>
         <strong>＋ İyileşme</strong> — can yeniler<br><br>
         Rakibin karesine adım at → rakip ölür.
+      </div>
+
+      <div id="charTip" class="char-tip">Karakter detayları burada görünür.</div>
+      <div id="smartTip" class="smart-tip">Akıllı ipucu burada görünür.</div>
+
+      <div class="combat-log">
+        <div class="combat-log-title">Son Olaylar</div>
+        <ul id="combatLog" class="combat-log-list">
+          <li>Oyun başladıktan sonra olaylar burada listelenir.</li>
+        </ul>
       </div>
     </aside>
   </div>
@@ -516,18 +660,47 @@
     </div>
   </div>
 
+  <div id="helpOverlay" class="help-overlay" aria-hidden="true">
+    <div class="help-card">
+      <div class="help-title">Hızlı Yardım</div>
+      <ul class="help-list">
+        <li><span class="kbd">Space</span> Yetenek modunu aç/kapat</li>
+        <li><span class="kbd">T</span> Turu geçir</li>
+        <li><span class="kbd">G</span> Tehlike katmanını aç/kapat</li>
+        <li><span class="kbd">C</span> Koordinat etiketini aç/kapat</li>
+        <li><span class="kbd">B</span> Renk körü modunu aç/kapat</li>
+        <li><span class="kbd">P</span> Duraklat/devam et</li>
+        <li><span class="kbd">M</span> Sesi aç/kapat</li>
+        <li><span class="kbd">R</span> Maçı yeniden başlat</li>
+        <li><span class="kbd">H</span> Yardım penceresi</li>
+        <li><span class="kbd">Esc</span> Yetenek modunu kapat / yardımı kapat</li>
+      </ul>
+      <button id="closeHelpBtn" class="button-secondary" style="width:100%;">Kapat</button>
+    </div>
+  </div>
+
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
     const turnBadge = document.getElementById("turnBadge");
     const infoText = document.getElementById("infoText");
     const statusText = document.getElementById("statusText");
+    const combatLog = document.getElementById("combatLog");
+    const charTip = document.getElementById("charTip");
     const menuOverlay = document.getElementById("menuOverlay");
     const startBtn = document.getElementById("startBtn");
     const pauseBtn = document.getElementById("pauseBtn");
     const resetBtn = document.getElementById("resetBtn");
     const abilityBtn = document.getElementById("abilityBtn");
+    const skipTurnBtn = document.getElementById("skipTurnBtn");
+    const dangerBtn = document.getElementById("dangerBtn");
+    const coordsBtn = document.getElementById("coordsBtn");
+    const colorblindBtn = document.getElementById("colorblindBtn");
+    const helpBtn = document.getElementById("helpBtn");
+    const closeHelpBtn = document.getElementById("closeHelpBtn");
     const soundBtn = document.getElementById("soundBtn");
+    const helpOverlay = document.getElementById("helpOverlay");
+    const smartTip = document.getElementById("smartTip");
     const mapSelect = document.getElementById("mapSelect");
     const spawnSelect = document.getElementById("spawnSelect");
     const p1CharacterSelect = document.getElementById("p1Character");
@@ -572,6 +745,7 @@
         cooldown: 1,
         symbol: "🧱",
         accent: "#22c55e",
+        freeActionAfterAbility: true,
         description: "Bitişik boş kareye duvar yerleştirir."
       },
       portal: {
@@ -580,6 +754,7 @@
         cooldown: 1,
         symbol: "🌀",
         accent: "#60a5fa",
+        freeActionAfterAbility: true,
         description: "2 portal yerleştirir; üstünden geçince diğerine gider."
       },
       frog: {
@@ -620,6 +795,23 @@
     let lastFrameTime = 0;
     let audioCtx = null;
     let soundEnabled = true;
+    let lastLoggedInfo = "";
+    const viewState = {
+      showDanger: false,
+      showCoords: true,
+      colorblindMode: false
+    };
+
+    const TEAM_PALETTES = {
+      default: {
+        1: { base: "#2563eb", light: "#60a5fa" },
+        2: { base: "#dc2626", light: "#f87171" }
+      },
+      colorblind: {
+        1: { base: "#0ea5e9", light: "#67e8f9" },
+        2: { base: "#f97316", light: "#fdba74" }
+      }
+    };
 
     function ensureAudioContext() {
       if (audioCtx) {
@@ -700,8 +892,102 @@
       return Math.floor(Math.random() * max);
     }
 
+    function addCombatLog(text) {
+      const message = (text || "").trim();
+      if (!message) {
+        return;
+      }
+      const li = document.createElement("li");
+      li.textContent = message;
+      li.className = classifyLogMessage(message);
+      combatLog.prepend(li);
+      while (combatLog.children.length > 6) {
+        combatLog.lastChild.remove();
+      }
+    }
+
+    function classifyLogMessage(message) {
+      const msg = message.toLowerCase();
+      if (msg.includes("öld") || msg.includes("hasar") || msg.includes("tuzağ") || msg.includes("kalkan")) {
+        return "log-combat";
+      }
+      if (msg.includes("güc") || msg.includes("iyileş") || msg.includes("kombo") || msg.includes("portal")) {
+        return "log-buff";
+      }
+      if (msg.includes("tahmin") || msg.includes("kilit") || msg.includes("beklemede") || msg.includes("yetenek")) {
+        return "log-control";
+      }
+      return "log-system";
+    }
+
+    function resetCombatLog() {
+      combatLog.innerHTML = "";
+      addCombatLog("Yeni maç başladı.");
+    }
+
+    function observeInfoTextForLog() {
+      const observer = new MutationObserver(() => {
+        const next = infoText.textContent.trim();
+        if (!next || next === lastLoggedInfo) {
+          return;
+        }
+        lastLoggedInfo = next;
+        addCombatLog(next);
+      });
+      observer.observe(infoText, { childList: true, characterData: true, subtree: true });
+    }
+
     function selectedMapConfig() {
       return MAPS[mapSelect.value] || MAPS.classic;
+    }
+
+    function updateCharacterTips() {
+      const c1 = CHARACTERS[p1CharacterSelect.value];
+      const c2 = CHARACTERS[p2CharacterSelect.value];
+      p1CharacterSelect.title = `${c1.ability}: ${c1.description}`;
+      p2CharacterSelect.title = `${c2.ability}: ${c2.description}`;
+      charTip.textContent = `Mavi ${c1.symbol} ${c1.ability}: ${c1.description} | Kırmızı ${c2.symbol} ${c2.ability}: ${c2.description}`;
+    }
+
+    function updateAccessibilityButtons() {
+      dangerBtn.textContent = `Tehlike: ${viewState.showDanger ? "Açık" : "Kapalı"}`;
+      coordsBtn.textContent = `Koordinat: ${viewState.showCoords ? "Açık" : "Kapalı"}`;
+      colorblindBtn.textContent = `Renk Körü: ${viewState.colorblindMode ? "Açık" : "Kapalı"}`;
+    }
+
+    function updateSmartTip() {
+      if (!game || !game.started) {
+        smartTip.textContent = "Akıllı ipucu: maç başlayınca burada taktik önerisi görünür.";
+        return;
+      }
+      if (game.paused) {
+        smartTip.textContent = "Akıllı ipucu: oyun duraklatıldı, P ile devam edebilirsin.";
+        return;
+      }
+      if (isGameOver()) {
+        smartTip.textContent = "Akıllı ipucu: yeni maçta farklı eşleşmeler deneyebilirsin.";
+        return;
+      }
+
+      const player = currentPlayer();
+      const enemy = enemyPlayer();
+      const canFinish = movableTiles(player).some(m => m.x === enemy.x && m.y === enemy.y);
+      if (canFinish) {
+        smartTip.textContent = `${player.name} bu tur rakip karesine basıp maçı bitirebilir.`;
+        return;
+      }
+
+      if (canUseAbility(player) && !player.actionDone) {
+        smartTip.textContent = `${abilityLabelForPlayer(player)} hazır. Space ile yetenek modunu aç.`;
+        return;
+      }
+
+      smartTip.textContent = "Tehlike katmanını açıp rakibin erişebileceği kareleri kontrol et.";
+    }
+
+    function setHelpVisible(visible) {
+      helpOverlay.classList.toggle("visible", visible);
+      helpOverlay.setAttribute("aria-hidden", visible ? "false" : "true");
     }
 
     function buildSpawnPositions() {
@@ -739,7 +1025,13 @@
     }
 
     function teamColor(team) {
-      return team === 1 ? "#2563eb" : "#dc2626";
+      const palette = viewState.colorblindMode ? TEAM_PALETTES.colorblind : TEAM_PALETTES.default;
+      return palette[team].base;
+    }
+
+    function teamLightColor(team) {
+      const palette = viewState.colorblindMode ? TEAM_PALETTES.colorblind : TEAM_PALETTES.default;
+      return palette[team].light;
     }
 
     function tileColor(x, y) {
@@ -778,6 +1070,10 @@
 
     function hasPowerupAt(x, y) {
       return game.powerups.some(p => p.x === x && p.y === y);
+    }
+
+    function predictionsForTeam(team) {
+      return game.predictions.filter(item => item.ownerTeam === team);
     }
 
     function lineIntersectsWall(fromX, fromY, toX, toY) {
@@ -932,6 +1228,8 @@
             minotoBreaks: 0,
             minotoDashReady: false,
             rangeLockTurns: 0,
+            freeActionAfterAbility: false,
+            abilityUsedThisTurn: false,
             powers: { speed: false, diagonal: false, jump: false, shield: false }
           },
           {
@@ -949,6 +1247,8 @@
             minotoBreaks: 0,
             minotoDashReady: false,
             rangeLockTurns: 0,
+            freeActionAfterAbility: false,
+            abilityUsedThisTurn: false,
             powers: { speed: false, diagonal: false, jump: false, shield: false }
           }
         ],
@@ -968,6 +1268,9 @@
     function powerSummaryHTML(player) {
       const pips = [];
       pips.push(`<span class='power-pip'>${CHARACTERS[player.characterId].symbol} ${CHARACTERS[player.characterId].label}</span>`);
+      if (CHARACTERS[player.characterId].freeActionAfterAbility) {
+        pips.push("<span class='power-pip'>↺ Yetenek sonrası hamle</span>");
+      }
       if (player.powers.speed) { pips.push("<span class='power-pip'>⚡ Hız</span>"); }
       if (player.powers.diagonal) { pips.push("<span class='power-pip'>✦ Çapraz</span>"); }
       if (player.powers.jump) { pips.push("<span class='power-pip'>↑ Atlama</span>"); }
@@ -980,6 +1283,9 @@
         if (player.minotoDashReady) {
           pips.push("<span class='power-pip'>🔥 Kombo Hazır</span>");
         }
+      }
+      if (player.characterId === "gambler") {
+        pips.push(`<span class='power-pip'>🎲 Tahmin: ${predictionsForTeam(player.team).length}</span>`);
       }
       if (player.rangeLockTurns > 0) {
         pips.push(`<span class='power-pip'>⛓ Menzil Kilidi: ${player.rangeLockTurns}</span>`);
@@ -1158,6 +1464,8 @@
           target.rangeLockTurns = Math.max(target.rangeLockTurns, 2);
           infoText.textContent = `${target.name} için menzil kilidi aktif!`;
           createEffect("trap", target.x, target.y, "#a855f7", "⛓");
+        } else {
+          infoText.textContent = "Kumarbaz tahmini boşa çıktı.";
         }
       }
 
@@ -1170,6 +1478,8 @@
       const player = currentPlayer();
       player.actionDone = false;
       player.abilityArmed = false;
+      player.freeActionAfterAbility = false;
+      player.abilityUsedThisTurn = false;
       if (player.cooldown > 0) {
         player.cooldown -= 1;
       }
@@ -1196,7 +1506,7 @@
     }
 
     function canUseAbility(player) {
-      return player.cooldown === 0 && !player.actionDone;
+      return player.cooldown === 0 && !player.actionDone && !player.abilityUsedThisTurn;
     }
 
     function abilityLabelForPlayer(player) {
@@ -1215,9 +1525,13 @@
         return;
       }
       if (!canUseAbility(player)) {
-        infoText.textContent = player.cooldown > 0
-          ? `Yetenek beklemede: ${player.cooldown} tur`
-          : "Bu tur aksiyonunu zaten kullandın.";
+        if (player.abilityUsedThisTurn) {
+          infoText.textContent = "Bu tur yeteneğini zaten kullandın.";
+        } else if (player.cooldown > 0) {
+          infoText.textContent = `Yetenek beklemede: ${player.cooldown} tur`;
+        } else {
+          infoText.textContent = "Bu tur aksiyonunu zaten kullandın.";
+        }
         return;
       }
 
@@ -1408,7 +1722,7 @@
       createEffect("portal", x, y, "#a855f7", "🎲");
 
       if (!sameLineAndClear(player, enemy)) {
-        infoText.textContent = "Tahmin atıldı. Düz görüş olmadığı için anlık hasar vurulamadı.";
+        infoText.textContent = `Tahmin kuruldu: (${x + 1},${y + 1}) | Kalan: 2 tur. Düz görüş yok, anlık hasar vurulamadı.`;
         return true;
       }
 
@@ -1420,7 +1734,7 @@
           createEffect("trap", enemy.x, enemy.y, "#fb7185", "💥");
         }
       }
-      infoText.textContent = "Tahmin atıldı ve anında 3 hasar vuruldu.";
+      infoText.textContent = `Tahmin kuruldu: (${x + 1},${y + 1}) | Kalan: 2 tur. Anında 3 hasar vuruldu.`;
       return true;
     }
 
@@ -1444,6 +1758,8 @@
       const success = handler();
       if (success) {
         player.cooldown = cfg.cooldown;
+        player.abilityUsedThisTurn = true;
+        player.freeActionAfterAbility = Boolean(cfg.freeActionAfterAbility);
         playSound("ability");
       }
       return success;
@@ -1478,7 +1794,7 @@
         for (const portal of portals) {
           const cx = portal.x * TILE + TILE / 2;
           const cy = portal.y * TILE + TILE / 2;
-          ctx.strokeStyle = team === 1 ? "#60a5fa" : "#f87171";
+          ctx.strokeStyle = teamLightColor(team);
           ctx.lineWidth = 3;
           ctx.beginPath();
           ctx.arc(cx, cy, TILE * 0.22, 0, Math.PI * 2);
@@ -1490,6 +1806,32 @@
           ctx.font = `bold ${Math.max(11, Math.round(TILE * 0.2))}px sans-serif`;
           ctx.fillText("🌀", cx, cy + 0.5);
         }
+      }
+    }
+
+    function drawPredictions() {
+      for (const prediction of game.predictions) {
+        const cx = prediction.x * TILE + TILE / 2;
+        const cy = prediction.y * TILE + TILE / 2;
+        const ownerColor = teamLightColor(prediction.ownerTeam);
+
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = ownerColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(prediction.x * TILE + 4, prediction.y * TILE + 4, TILE - 8, TILE - 8);
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `bold ${Math.max(10, Math.round(TILE * 0.18))}px sans-serif`;
+        ctx.fillText("🎲", cx, cy - TILE * 0.08);
+
+        ctx.fillStyle = ownerColor;
+        ctx.font = `bold ${Math.max(9, Math.round(TILE * 0.14))}px sans-serif`;
+        ctx.fillText(String(prediction.turnsLeft), cx, cy + TILE * 0.15);
+        ctx.restore();
       }
     }
 
@@ -1518,6 +1860,122 @@
         ctx.font = `bold ${Math.round(TILE * 0.2)}px sans-serif`;
         ctx.fillText(meta.symbol, cx, cy);
       }
+    }
+
+    function drawCoordinates() {
+      if (!viewState.showCoords) {
+        return;
+      }
+      ctx.save();
+      ctx.fillStyle = "rgba(226,232,240,0.62)";
+      ctx.font = `bold ${Math.max(8, Math.round(TILE * 0.15))}px sans-serif`;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      for (let y = 0; y < GRID; y++) {
+        for (let x = 0; x < GRID; x++) {
+          const label = `${String.fromCodePoint(65 + (x % 26))}${y + 1}`;
+          ctx.fillText(label, x * TILE + 3, y * TILE + 2);
+        }
+      }
+      ctx.restore();
+    }
+
+    function toggleDanger() {
+      viewState.showDanger = !viewState.showDanger;
+      updateAccessibilityButtons();
+      render();
+    }
+
+    function toggleCoords() {
+      viewState.showCoords = !viewState.showCoords;
+      updateAccessibilityButtons();
+      render();
+    }
+
+    function toggleColorblind() {
+      viewState.colorblindMode = !viewState.colorblindMode;
+      updateAccessibilityButtons();
+      render();
+    }
+
+    function handleGlobalKey(key) {
+      if (key === "h") {
+        setHelpVisible(!helpOverlay.classList.contains("visible"));
+        return true;
+      }
+      if (key === "g") {
+        toggleDanger();
+        return true;
+      }
+      if (key === "c") {
+        toggleCoords();
+        return true;
+      }
+      if (key === "b") {
+        toggleColorblind();
+        return true;
+      }
+      return false;
+    }
+
+    function handleEscapeKey() {
+      if (helpOverlay.classList.contains("visible")) {
+        setHelpVisible(false);
+        return;
+      }
+      const player = currentPlayer();
+      if (player && player.abilityArmed) {
+        player.abilityArmed = false;
+        infoText.textContent = "Yetenek modu kapatıldı.";
+        render();
+      }
+    }
+
+    function handleInGameKey(e, key) {
+      if (key === " " || key === "spacebar") {
+        e.preventDefault();
+        armAbility();
+        return;
+      }
+      if (key === "t") {
+        skipTurn();
+        return;
+      }
+      if (key === "p") {
+        togglePause();
+        return;
+      }
+      if (key === "m") {
+        toggleSound();
+        return;
+      }
+      if (key === "r") {
+        restart();
+      }
+    }
+
+    function drawDangerOverlay() {
+      if (!viewState.showDanger || !game.started || game.paused || isGameOver()) {
+        return;
+      }
+      const enemy = enemyPlayer();
+      if (!enemy) {
+        return;
+      }
+      const threat = new Set();
+      for (const tile of movableTiles(enemy)) {
+        threat.add(`${tile.x},${tile.y}`);
+      }
+
+      ctx.save();
+      for (const key of threat) {
+        const [xText, yText] = key.split(",");
+        const x = Number(xText);
+        const y = Number(yText);
+        ctx.fillStyle = "rgba(239,68,68,0.2)";
+        ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+      }
+      ctx.restore();
     }
 
     function drawMoveHints() {
@@ -1550,8 +2008,11 @@
       drawGrid();
       drawObstacles();
       drawPortals();
+      drawPredictions();
       drawPowerups();
       drawMoveHints();
+      drawDangerOverlay();
+      drawCoordinates();
       drawGridLines();
     }
 
@@ -1610,7 +2071,8 @@
       }
       const abilityLabel = abilityLabelForPlayer(p);
       const cd = p.cooldown > 0 ? ` (CD ${p.cooldown})` : "";
-      abilityBtn.textContent = `${p.abilityArmed ? "Yetenek Modu Açık" : abilityLabel}${cd}`;
+      const bonus = CHARACTERS[p.characterId].freeActionAfterAbility ? " + hamle" : "";
+      abilityBtn.textContent = `${p.abilityArmed ? "Yetenek Modu Açık" : abilityLabel}${bonus}${cd}`;
     }
 
     function render() {
@@ -1636,7 +2098,8 @@
         statusText.textContent = "Oyun duraklatıldı.";
       } else if (game.started) {
         const spawnText = game.spawnMode === "random" ? "Rastgele" : "Sabit";
-        statusText.textContent = `${game.mapLabel} ${GRID}x${GRID} (${spawnText}) | Duvar:${WALL_COUNT} Tuzak:${MAP_TRAP_COUNT} Güç:${game.powerups.length} | ${active.name} | ${CHARACTERS[active.characterId].label} | ${abilityLabelForPlayer(active)} | CD: ${active.cooldown}`;
+        const viewFlags = `Tehlike:${viewState.showDanger ? "Aç" : "Kap"} Koord:${viewState.showCoords ? "Aç" : "Kap"} RK:${viewState.colorblindMode ? "Aç" : "Kap"}`;
+        statusText.textContent = `${game.mapLabel} ${GRID}x${GRID} (${spawnText}) | Duvar:${WALL_COUNT} Tuzak:${MAP_TRAP_COUNT} Güç:${game.powerups.length} | ${active.name} | ${CHARACTERS[active.characterId].label} | ${abilityLabelForPlayer(active)} | CD: ${active.cooldown} | ${viewFlags}`;
       } else {
         statusText.textContent = "Maç başında karakterini seç.";
       }
@@ -1646,6 +2109,7 @@
       }
 
       updateAbilityButton();
+      updateSmartTip();
     }
 
     function restart() {
@@ -1653,7 +2117,10 @@
       game.started = true;
       game.paused = false;
       menuOverlay.classList.add("hidden");
+      setHelpVisible(false);
       pauseBtn.textContent = "Duraklat";
+      lastLoggedInfo = "";
+      resetCombatLog();
       infoText.textContent = "Maç başladı. Bu tur hareket ya da yetenek seç.";
       render();
     }
@@ -1705,9 +2172,13 @@
 
     function handleAbility(player, x, y) {
       if (!canUseAbility(player)) {
-        infoText.textContent = player.cooldown > 0
-          ? `Yetenek beklemede: ${player.cooldown} tur`
-          : "Bu tur aksiyonunu zaten kullandın.";
+        if (player.abilityUsedThisTurn) {
+          infoText.textContent = "Bu tur yeteneğini zaten kullandın.";
+        } else if (player.cooldown > 0) {
+          infoText.textContent = `Yetenek beklemede: ${player.cooldown} tur`;
+        } else {
+          infoText.textContent = "Bu tur aksiyonunu zaten kullandın.";
+        }
         return false;
       }
       return executeAbility(player, x, y);
@@ -1724,6 +2195,20 @@
         return;
       }
 
+      if (player.freeActionAfterAbility) {
+        const success = handleMove(player, x, y);
+        if (!success) {
+          render();
+          return;
+        }
+
+        player.actionDone = true;
+        player.freeActionAfterAbility = false;
+        player.abilityArmed = false;
+        endTurn();
+        return;
+      }
+
       const success = player.abilityArmed
         ? handleAbility(player, x, y)
         : handleMove(player, x, y);
@@ -1735,6 +2220,20 @@
 
       player.actionDone = true;
       player.abilityArmed = false;
+      endTurn();
+    }
+
+    function skipTurn() {
+      if (!game.started || game.paused || isGameOver()) {
+        return;
+      }
+      const player = currentPlayer();
+      if (!player || player.actionDone) {
+        return;
+      }
+      player.actionDone = true;
+      player.abilityArmed = false;
+      infoText.textContent = `${player.name} turu geçti.`;
       endTurn();
     }
 
@@ -1768,9 +2267,60 @@
       playSound("button");
       armAbility();
     });
+    skipTurnBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      playSound("button");
+      skipTurn();
+    });
     soundBtn.addEventListener("click", () => {
       ensureAudioContext();
       toggleSound();
+    });
+    dangerBtn.addEventListener("click", () => {
+      toggleDanger();
+    });
+    coordsBtn.addEventListener("click", () => {
+      toggleCoords();
+    });
+    colorblindBtn.addEventListener("click", () => {
+      toggleColorblind();
+    });
+    helpBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      playSound("button");
+      setHelpVisible(true);
+    });
+    closeHelpBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      playSound("button");
+      setHelpVisible(false);
+    });
+    helpOverlay.addEventListener("click", e => {
+      if (e.target === helpOverlay) {
+        setHelpVisible(false);
+      }
+    });
+    p1CharacterSelect.addEventListener("change", updateCharacterTips);
+    p2CharacterSelect.addEventListener("change", updateCharacterTips);
+
+    document.addEventListener("keydown", e => {
+      if (e.repeat) {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+      if (handleGlobalKey(key)) {
+        return;
+      }
+      if (key === "escape") {
+        handleEscapeKey();
+        return;
+      }
+
+      if (!game.started || helpOverlay.classList.contains("visible")) {
+        return;
+      }
+      handleInGameKey(e, key);
     });
 
     function gameLoop(timestamp) {
@@ -1784,6 +2334,11 @@
     }
 
     updatePowerupLegend();
+    updateCharacterTips();
+    observeInfoTextForLog();
+    resetCombatLog();
+    setHelpVisible(false);
+    updateAccessibilityButtons();
     game = newGameState();
     requestAnimationFrame(gameLoop);
   </script>
