@@ -2218,6 +2218,12 @@
         return;
       }
 
+      if (player.abilityArmed && player.freeActionAfterAbility) {
+        player.abilityArmed = false;
+        render();
+        return;
+      }
+
       player.actionDone = true;
       player.abilityArmed = false;
       endTurn();
