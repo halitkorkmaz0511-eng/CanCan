@@ -33,19 +33,58 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      min-height: 100vh;
       font-family: "Inter", "Segoe UI", sans-serif;
       color: var(--ink);
       background: linear-gradient(135deg, var(--bg-from), var(--bg-mid), var(--bg-to));
-      display: grid;
-      place-items: center;
-      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 16px 16px 8px;
     }
+
+    .win-counter {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 30;
+      border: 1px solid var(--surface-border);
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.86);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      padding: 8px 10px;
+      min-width: 130px;
+    }
+
+    .win-counter-title {
+      font-size: 0.68rem;
+      font-weight: 800;
+      color: #cbd5e1;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .win-counter-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: #e2e8f0;
+      margin-top: 2px;
+      gap: 12px;
+    }
+
+    .win-counter-row.blue { color: #93c5fd; }
+    .win-counter-row.red { color: #fca5a5; }
 
     .game-shell {
       width: min(1040px, 100%);
       display: grid;
       grid-template-columns: 1fr 300px;
+      align-items: start;
       gap: 20px;
       animation: rise 500ms ease both;
     }
@@ -491,13 +530,13 @@
     }
 
     .seo-content {
-      width: min(1040px, 100%);
-      margin-top: 18px;
+      width: 100%;
+      margin-top: 14px;
       border: 1px solid var(--surface-border);
-      border-radius: var(--radius-lg);
-      background: var(--surface);
-      box-shadow: 0 20px 50px rgba(0,0,0,0.35);
-      padding: 20px;
+      border-radius: var(--radius-md);
+      background: rgba(255,255,255,0.03);
+      box-shadow: none;
+      padding: 14px;
       color: var(--ink);
     }
 
@@ -522,10 +561,31 @@
   </style>
 </head>
 <body>
+  <div id="winCounter" class="win-counter" aria-label="Kazanan sayacı">
+    <div class="win-counter-title">Kazanan Sayacı</div>
+    <div class="win-counter-row blue"><span>Mavi</span><strong id="p1Wins">0</strong></div>
+    <div class="win-counter-row red"><span>Kırmızı</span><strong id="p2Wins">0</strong></div>
+  </div>
+
   <div class="game-shell">
     <section class="board-wrap">
       <div class="game-title">Cancan &mdash; 2D Strateji</div>
       <canvas id="gameCanvas" width="640" height="640"></canvas>
+
+      <section class="seo-content" aria-label="CanCan oyunu hakkında">
+        <h2>CanCan 2D Strateji Oyunu</h2>
+        <p>
+          CanCan, tarayıcıda oynanan ücretsiz bir 2D strateji oyunudur. Farklı harita boyutlarında
+          Mavi ve Kırmızı oyuncular sırayla hareket eder. Amaç, rakibin bulunduğu kareye ulaşarak oyunu kazanmaktır.
+        </p>
+        <h2>Nasıl Oynanır?</h2>
+        <ul>
+          <li>Yeşil işaretli kareler o turda gidebileceğin geçerli hamlelerdir.</li>
+          <li>Güç ikonlarını toplayarak hız, çapraz hareket, atlama, kalkan ve iyileşme avantajı elde edebilirsin.</li>
+          <li>Tuzaklar can azaltır; duvarlar yolu kapatır.</li>
+          <li>Rakibin karesine adım attığında rakibini elersin.</li>
+        </ul>
+      </section>
     </section>
 
     <aside class="panel">
@@ -537,7 +597,13 @@
       </div>
 
       <div id="infoText">Oyununu seç ve yeşil karelere hareket et.</div>
-      <div id="statusText" style="margin-top:8px;color:#94a3b8;font-size:0.78rem;">Oyun hazır değil.</div>
+
+      <div class="combat-log">
+        <div class="combat-log-title">Son Olaylar</div>
+        <ul id="combatLog" class="combat-log-list">
+          <li>Oyun başladıktan sonra olaylar burada listelenir.</li>
+        </ul>
+      </div>
 
       <div class="stat-block" id="statBlock">
         <div class="stat-card blue-card">
@@ -568,41 +634,10 @@
         <button id="resetBtn">Yeniden Başlat</button>
       </div>
 
-      <div class="hint">
-        <strong>⚡ H</strong> Hız — 2 kare hareket<br>
-        <strong>✦ Ç</strong> Çapraz — çapraz yönler açılır<br>
-        <strong>↑ A</strong> Atlama — engel aşma<br><br>
-        <strong>🛡 Kalkan</strong> — bir ölümcül darbeyi engeller<br>
-        <strong>＋ İyileşme</strong> — can yeniler<br><br>
-        Rakibin karesine adım at → rakip ölür.
-      </div>
-
       <div id="charTip" class="char-tip">Karakter detayları burada görünür.</div>
       <div id="smartTip" class="smart-tip">Akıllı ipucu burada görünür.</div>
-
-      <div class="combat-log">
-        <div class="combat-log-title">Son Olaylar</div>
-        <ul id="combatLog" class="combat-log-list">
-          <li>Oyun başladıktan sonra olaylar burada listelenir.</li>
-        </ul>
-      </div>
     </aside>
   </div>
-
-  <section class="seo-content" aria-label="CanCan oyunu hakkında">
-    <h2>CanCan 2D Strateji Oyunu</h2>
-    <p>
-      CanCan, tarayıcıda oynanan ücretsiz bir 2D strateji oyunudur. Farklı harita boyutlarında
-      Mavi ve Kırmızı oyuncular sırayla hareket eder. Amaç, rakibin bulunduğu kareye ulaşarak oyunu kazanmaktır.
-    </p>
-    <h2>Nasıl Oynanır?</h2>
-    <ul>
-      <li>Yeşil işaretli kareler o turda gidebileceğin geçerli hamlelerdir.</li>
-      <li>Güç ikonlarını toplayarak hız, çapraz hareket, atlama, kalkan ve iyileşme avantajı elde edebilirsin.</li>
-      <li>Tuzaklar can azaltır; duvarlar yolu kapatır.</li>
-      <li>Rakibin karesine adım attığında rakibini elersin.</li>
-    </ul>
-  </section>
 
   <div class="menu-overlay" id="menuOverlay">
     <div class="menu-card">
@@ -684,7 +719,6 @@
     const ctx = canvas.getContext("2d");
     const turnBadge = document.getElementById("turnBadge");
     const infoText = document.getElementById("infoText");
-    const statusText = document.getElementById("statusText");
     const combatLog = document.getElementById("combatLog");
     const charTip = document.getElementById("charTip");
     const menuOverlay = document.getElementById("menuOverlay");
@@ -705,18 +739,23 @@
     const spawnSelect = document.getElementById("spawnSelect");
     const p1CharacterSelect = document.getElementById("p1Character");
     const p2CharacterSelect = document.getElementById("p2Character");
+    const p1WinsEl = document.getElementById("p1Wins");
+    const p2WinsEl = document.getElementById("p2Wins");
 
     let GRID = 10;
     let TILE = canvas.width / GRID;
     let WALL_COUNT = 14;
     let MAP_TRAP_COUNT = 3;
     const MAP_TRAP_DAMAGE = 3;
-    const PORTAL_MAX_RANGE = 6;
+    const ABILITY_COOLDOWN_TURNS = 2;
+    const PORTAL_BASE_RANGE = 5;
+    const TRICKSTER_BASE_RANGE = 6;
     const MAX_HP = 6;
     const BASE_POWERUP_TYPES = ["speed", "diagonal", "jump", "shield", "heal"];
     const POWERUP_SPAWN_INTERVAL = 3;
     const POWERUP_WARNING_TURNS = 1;
     const POWERUP_MIN_PLAYER_DIST = 3;
+    const CASTLE_AURA_DAMAGE = 2;
 
     const MAPS = {
       classic: { label: "Klasik", grid: 10, walls: 14, traps: 3, powerups: 3 },
@@ -729,41 +768,43 @@
       minoto: {
         label: "Minoto (Yıkıcı)",
         ability: "Yıkım",
-        cooldown: 2,
+        cooldown: ABILITY_COOLDOWN_TURNS,
         symbol: "⛏",
         accent: "#f59e0b",
-        description: "Bitişik duvarı kırar. 3 kırım sonrası kombo sürüş açılır."
+        freeActionAfterAbility: true,
+        description: "Bitişik duvarı kırar. 3 kırım sonrası açılan kombo sürüş seçilen çizgide harita sonuna akar, duvar kırmaz ve rakibi ezer."
       },
       hunter: {
         label: "Hunter (Gözcü)",
         ability: "Keskin Atış",
-        cooldown: 2,
+        cooldown: ABILITY_COOLDOWN_TURNS,
         symbol: "🎯",
         accent: "#ef4444",
-        description: "Aynı satır/sütunda engel yoksa hedefi vurur."
+        freeActionAfterAbility: true,
+        description: "Sadece çapraz hatta, duvar engeli yoksa ve menzil içindeyse hedefi vurur."
       },
       builder: {
         label: "İnşaatçı (Mimar)",
-        ability: "Duvar Kur",
-        cooldown: 1,
+        ability: "Kale Kur",
+        cooldown: ABILITY_COOLDOWN_TURNS,
         symbol: "🧱",
         accent: "#22c55e",
         freeActionAfterAbility: true,
-        description: "Bitişik boş kareye duvar yerleştirir."
+        description: "2 tur yaşayan kale kurar. Rakip 3x3 alana girerse -2 can vurur ve dağılır."
       },
       portal: {
         label: "Portal (Gezgin)",
         ability: "Portal Kur",
-        cooldown: 1,
+        cooldown: ABILITY_COOLDOWN_TURNS,
         symbol: "🌀",
         accent: "#60a5fa",
         freeActionAfterAbility: true,
-        description: "2 portal yerleştirir; üstünden geçince diğerine gider."
+        description: "Menzili haritaya göre artan uzaklığa portal kurar; üstünden geçince diğerine gider."
       },
       frog: {
         label: "Kurbağa (Sıçrayan)",
         ability: "Sıçrama",
-        cooldown: 1,
+        cooldown: ABILITY_COOLDOWN_TURNS,
         symbol: "🐸",
         accent: "#84cc16",
         description: "2 kare menzile sıçrar, duvarları aşar."
@@ -771,17 +812,19 @@
       trickster: {
         label: "Tuzakçı (Kurnaz)",
         ability: "Ölüm Tuzağı",
-        cooldown: 2,
+        cooldown: ABILITY_COOLDOWN_TURNS,
         symbol: "🎭",
         accent: "#f97316",
-        description: "Tek aktif kalıcı tuzak kurar. Düşman anında ölür."
+        freeActionAfterAbility: true,
+        description: "Menzili haritaya göre artan uzaklığa tek aktif ölüm tuzağı kurar."
       },
       gambler: {
         label: "Kumarbaz (Stratejist)",
         ability: "Tahmin Kilidi",
-        cooldown: 2,
+        cooldown: ABILITY_COOLDOWN_TURNS,
         symbol: "🎲",
         accent: "#a855f7",
+        freeActionAfterAbility: true,
         description: "Tahmin atar ve anında 3 hasar vurur. Tekrar tahmin için 2 tur bekler."
       }
     };
@@ -794,11 +837,14 @@
       heal: { color: "#fb7185", glow: "rgba(251,113,133,0.55)", symbol: "＋", label: "İyileşme" }
     };
 
+    const MAP_POWER_TYPES = ["speed", "diagonal", "jump", "shield"];
+
     let game = null;
     let lastFrameTime = 0;
     let audioCtx = null;
     let soundEnabled = true;
     let lastLoggedInfo = "";
+    const winStats = { 1: 0, 2: 0 };
     const viewState = {
       showDanger: false,
       showCoords: true,
@@ -1063,7 +1109,7 @@
 
     function isWallAt(x, y) {
       const o = getObstacleAt(x, y);
-      return o && o.type === "wall";
+      return o && (o.type === "wall" || o.type === "castle");
     }
 
     function getDeadlyTrapAt(x, y) {
@@ -1302,6 +1348,8 @@
         mapLabel: mapCfg.label,
         spawnMode: spawnSelect.value,
         turnNumber: 1,
+        winnerTeam: 0,
+        winnerRegistered: false,
         pendingPowerups: [],
         powerupRules: {
           interval: POWERUP_SPAWN_INTERVAL,
@@ -1320,6 +1368,7 @@
             actionDone: false,
             abilityArmed: false,
             cooldown: 0,
+            pendingCooldown: 0,
             characterId: p1Char,
             trapCharges: p1Char === "trickster" ? 2 : 0,
             minotoBreaks: 0,
@@ -1328,6 +1377,7 @@
             freeActionAfterAbility: false,
             abilityUsedThisTurn: false,
             pendingPowerup: null,
+            diagonalExpiresAtTurn: 0,
             powers: { speed: false, diagonal: false, jump: false, shield: false }
           },
           {
@@ -1340,6 +1390,7 @@
             actionDone: false,
             abilityArmed: false,
             cooldown: 0,
+            pendingCooldown: 0,
             characterId: p2Char,
             trapCharges: p2Char === "trickster" ? 2 : 0,
             minotoBreaks: 0,
@@ -1348,6 +1399,7 @@
             freeActionAfterAbility: false,
             abilityUsedThisTurn: false,
             pendingPowerup: null,
+            diagonalExpiresAtTurn: 0,
             powers: { speed: false, diagonal: false, jump: false, shield: false }
           }
         ],
@@ -1460,9 +1512,50 @@
       return game.players.some(p => p.hp <= 0);
     }
 
+    function alivePlayers() {
+      return game.players.filter(p => p.hp > 0);
+    }
+
+    function winnerTeam() {
+      const alive = alivePlayers();
+      return alive.length === 1 ? alive[0].team : 0;
+    }
+
     function winnerName() {
-      const alive = game.players.find(p => p.hp > 0);
-      return alive ? alive.name : "Berabere";
+      const team = winnerTeam();
+      if (!team) {
+        return "Berabere";
+      }
+      const winner = playerByTeam(team);
+      return winner ? winner.name : "Berabere";
+    }
+
+    function updateWinCounter() {
+      p1WinsEl.textContent = String(winStats[1]);
+      p2WinsEl.textContent = String(winStats[2]);
+    }
+
+    function registerWinnerIfNeeded() {
+      if (!isGameOver() || game.winnerRegistered) {
+        return;
+      }
+
+      game.winnerRegistered = true;
+      game.winnerTeam = winnerTeam();
+
+      if (game.winnerTeam) {
+        winStats[game.winnerTeam] += 1;
+        const winner = playerByTeam(game.winnerTeam);
+        if (winner) {
+          infoText.textContent = `${winner.name} kazandı! 🏆`;
+          addCombatLog(`${winner.name} maçı kazandı!`);
+          createEffect("win", winner.x, winner.y, teamLightColor(winner.team), "👑");
+        }
+      } else {
+        infoText.textContent = "Maç berabere bitti.";
+        addCombatLog("Maç berabere bitti.");
+      }
+      updateWinCounter();
     }
 
     function applyPowerupToPlayer(player, picked) {
@@ -1474,10 +1567,30 @@
         return;
       }
 
+      // Single-slot system: only one map power can be active at the same time.
+      for (const powerType of MAP_POWER_TYPES) {
+        player.powers[powerType] = false;
+      }
+      player.diagonalExpiresAtTurn = 0;
       player.powers[picked.type] = true;
+      if (picked.type === "diagonal") {
+        // Diagonal can be used only for one own turn window.
+        player.diagonalExpiresAtTurn = game.turnNumber + 2;
+      }
       infoText.textContent = `${player.name} ${POWERUP_META[picked.type].label} gücünü aldı!`;
       createEffect("powerup", player.x, player.y, POWERUP_META[picked.type].color);
       playSound("powerup");
+    }
+
+    function hasUnconsumedMapPower(player) {
+      return MAP_POWER_TYPES.some(powerType => player.powers[powerType]);
+    }
+
+    function expireTimedMapPowers(player) {
+      if (player.powers.diagonal && player.diagonalExpiresAtTurn > 0 && game.turnNumber > player.diagonalExpiresAtTurn) {
+        player.powers.diagonal = false;
+        player.diagonalExpiresAtTurn = 0;
+      }
     }
 
     function resolvePendingPowerupForPlayer(player) {
@@ -1512,7 +1625,19 @@
         return;
       }
 
+      if (hasUnconsumedMapPower(player)) {
+        infoText.textContent = `${player.name} yeni güç alamaz. Önce mevcut güçlerini kullan.`;
+        return;
+      }
+
       const target = game.powerups[idx];
+      if (target.type === "shield") {
+        game.powerups.splice(idx, 1);
+        player.pendingPowerup = null;
+        applyPowerupToPlayer(player, target);
+        return;
+      }
+
       if (
         player.pendingPowerup
         && player.pendingPowerup.x === target.x
@@ -1586,6 +1711,36 @@
       return true;
     }
 
+    function checkCastleAuraDamage(player) {
+      const hostileCastle = game.obstacles.find(o => {
+        if (o.type !== "castle" || o.ownerTeam === player.team) {
+          return false;
+        }
+        return Math.abs(o.x - player.x) <= 1 && Math.abs(o.y - player.y) <= 1;
+      });
+
+      if (!hostileCastle) {
+        return false;
+      }
+
+      player.hp = Math.max(0, player.hp - CASTLE_AURA_DAMAGE);
+      infoText.textContent = `${player.name} kale kontrol alanına girdi! -${CASTLE_AURA_DAMAGE} can`;
+      createEffect("trap", player.x, player.y, "#22c55e", "🏰");
+      playSound("trap");
+      game.obstacles = game.obstacles.filter(o => o !== hostileCastle);
+      return true;
+    }
+
+    function tickCastles() {
+      game.obstacles = game.obstacles.filter(obstacle => {
+        if (obstacle.type !== "castle") {
+          return true;
+        }
+        obstacle.turnsLeft -= 1;
+        return obstacle.turnsLeft > 0;
+      });
+    }
+
     function resolvePredictionsTick() {
       if (!game.predictions || game.predictions.length === 0) {
         return;
@@ -1615,6 +1770,7 @@
     function startNextTurn() {
       game.turn = game.turn === 1 ? 2 : 1;
       processPowerupTurn(game);
+      tickCastles();
       resolvePredictionsTick();
       const player = currentPlayer();
       player.actionDone = false;
@@ -1627,6 +1783,7 @@
       if (player.rangeLockTurns > 0) {
         player.rangeLockTurns -= 1;
       }
+      expireTimedMapPowers(player);
       const gainedPowerup = resolvePendingPowerupForPlayer(player);
       if (!gainedPowerup) {
         infoText.textContent = `Sıradaki: ${player.name}`;
@@ -1634,6 +1791,11 @@
     }
 
     function endTurn() {
+      const player = currentPlayer();
+      if (player && player.pendingCooldown > 0) {
+        player.cooldown = player.pendingCooldown;
+        player.pendingCooldown = 0;
+      }
       if (isGameOver()) {
         render();
         return;
@@ -1650,7 +1812,8 @@
     }
 
     function canUseAbility(player) {
-      return player.cooldown === 0 && !player.actionDone && !player.abilityUsedThisTurn;
+      const minotoComboFollowup = player.characterId === "minoto" && player.minotoDashReady;
+      return player.cooldown === 0 && !player.actionDone && (!player.abilityUsedThisTurn || minotoComboFollowup);
     }
 
     function abilityLabelForPlayer(player) {
@@ -1661,6 +1824,27 @@
         return "Kombo Sürüş";
       }
       return CHARACTERS[player.characterId].ability;
+    }
+
+    function builderCastleRange() {
+      // 10x10 map -> 4 range, then +1 per 2 grid growth (12->5, 14->6, 16->7)
+      return 4 + Math.max(0, Math.floor((GRID - 10) / 2));
+    }
+
+    function hunterCastRange() {
+      // Map-specific balance: 10/12/14/16 -> 4/5/7/8
+      const byGrid = { 10: 4, 12: 5, 14: 7, 16: 8 };
+      return byGrid[GRID] ?? 4;
+    }
+
+    function portalCastRange() {
+      // Keep portal controlled: slow scaling on larger maps.
+      return PORTAL_BASE_RANGE + Math.max(0, Math.floor((GRID - 10) / 4));
+    }
+
+    function tricksterCastRange() {
+      // Trap throw also scales slowly with map size.
+      return TRICKSTER_BASE_RANGE + Math.max(0, Math.floor((GRID - 10) / 4));
     }
 
     function armAbility() {
@@ -1693,11 +1877,25 @@
       return !lineIntersectsWall(a.x, a.y, b.x, b.y);
     }
 
+    function sameDiagonalAndClearInRange(a, b, range) {
+      const dx = Math.abs(a.x - b.x);
+      const dy = Math.abs(a.y - b.y);
+      if (dx === 0 || dx !== dy) {
+        return false;
+      }
+      if (dx > range) {
+        return false;
+      }
+      return !lineIntersectsWall(a.x, a.y, b.x, b.y);
+    }
+
     function useMinotoDash(player, x, y) {
       const rawDx = x - player.x;
       const rawDy = y - player.y;
-      if (Math.max(Math.abs(rawDx), Math.abs(rawDy)) !== 1 || (rawDx !== 0 && rawDy !== 0)) {
-        infoText.textContent = "Kombo sürüş için bitişik yön karesi seç.";
+      const sameColumn = rawDx === 0 && rawDy !== 0;
+      const sameRow = rawDy === 0 && rawDx !== 0;
+      if (!sameColumn && !sameRow) {
+        infoText.textContent = "Kombo sürüş için aynı satır veya sütunda bir yön seç.";
         return false;
       }
 
@@ -1708,7 +1906,7 @@
       let lastX = player.x;
       let lastY = player.y;
 
-      while (inBounds(nx, ny) && !isWallAt(nx, ny)) {
+      while (inBounds(nx, ny)) {
         const hit = getPlayerAt(nx, ny);
         if (hit && hit.team !== player.team) {
           if (!applyShieldLogic(player, hit)) {
@@ -1716,8 +1914,10 @@
             createEffect("kill", hit.x, hit.y, teamColor(player.team), "⚔");
           }
         }
-        lastX = nx;
-        lastY = ny;
+        if (!isWallAt(nx, ny)) {
+          lastX = nx;
+          lastY = ny;
+        }
         nx += stepX;
         ny += stepY;
       }
@@ -1726,6 +1926,10 @@
       player.y = lastY;
       player.minotoDashReady = false;
       checkMapTrapDamage(player);
+      checkCastleAuraDamage(player);
+      if (player.hp <= 0) {
+        return true;
+      }
       if (!checkDeadlyTrap(player)) {
         startPowerupCaptureIfAny(player);
       }
@@ -1743,21 +1947,29 @@
         infoText.textContent = "Minoto sadece bitişik duvarı kırabilir.";
         return false;
       }
-      game.obstacles = game.obstacles.filter(o => !(o.type === "wall" && o.x === x && o.y === y));
+      game.obstacles = game.obstacles.filter(o => {
+        const destructible = o.type === "wall" || o.type === "castle";
+        return !(destructible && o.x === x && o.y === y);
+      });
       player.minotoBreaks += 1;
       if (player.minotoBreaks >= 3) {
         player.minotoBreaks = 0;
         player.minotoDashReady = true;
-        infoText.textContent = "Minoto kombo sürüşünü açtı!";
+        infoText.textContent = "Minoto kombo sürüşünü açtı! Aynı satır veya sütunda yön seç.";
       }
       createEffect("break", x, y, "#f59e0b", "⛏");
       return true;
     }
 
-    function useHunterAbility(player) {
+    function useHunterAbility(player, x, y) {
       const enemy = enemyPlayer();
-      if (!sameLineAndClear(player, enemy)) {
-        infoText.textContent = "Hunter için düz görüş hattı gerekli.";
+      const range = hunterCastRange();
+      if (!enemy || enemy.x !== x || enemy.y !== y) {
+        infoText.textContent = "Hunter yalnızca rakip karesini hedefleyebilir.";
+        return false;
+      }
+      if (!sameDiagonalAndClearInRange(player, enemy, range)) {
+        infoText.textContent = `Hunter sadece çapraz hatta ve en fazla ${range} kare menzilde vurabilir.`;
         return false;
       }
       if (!applyShieldLogic(player, enemy)) {
@@ -1770,12 +1982,13 @@
     function useBuilderAbility(player, x, y) {
       const dx = Math.abs(player.x - x);
       const dy = Math.abs(player.y - y);
-      if (Math.max(dx, dy) !== 1 || !isTileEmptyForUtility(x, y)) {
-        infoText.textContent = "İnşaatçı bitişik boş kareye duvar kurar.";
+      const range = builderCastleRange();
+      if (Math.max(dx, dy) > range || !isTileEmptyForUtility(x, y)) {
+        infoText.textContent = `İnşaatçı en fazla ${range} kare uzağa kale kurabilir.`;
         return false;
       }
-      game.obstacles.push({ type: "wall", x, y });
-      createEffect("build", x, y, "#22c55e", "🧱");
+      game.obstacles.push({ type: "castle", ownerTeam: player.team, x, y, turnsLeft: 3 });
+      createEffect("build", x, y, "#22c55e", "🏰");
       return true;
     }
 
@@ -1786,8 +1999,9 @@
       }
       const dx = Math.abs(player.x - x);
       const dy = Math.abs(player.y - y);
-      if (Math.max(dx, dy) > PORTAL_MAX_RANGE) {
-        infoText.textContent = `Portal en fazla ${PORTAL_MAX_RANGE} kare uzağa kurulabilir.`;
+      const range = portalCastRange();
+      if (Math.max(dx, dy) > range) {
+        infoText.textContent = `Portal en fazla ${range} kare uzağa kurulabilir.`;
         return false;
       }
       const ownPortals = game.portals[player.team];
@@ -1802,8 +2016,9 @@
     function useFrogAbility(player, x, y) {
       const dx = Math.abs(player.x - x);
       const dy = Math.abs(player.y - y);
-      if (!inBounds(x, y) || Math.max(dx, dy) > 2 || isWallAt(x, y)) {
-        infoText.textContent = "Kurbağa en fazla 2 kare sıçrayabilir.";
+      const diagonalJump = dx === dy && dx > 0 && dx <= 2;
+      if (!inBounds(x, y) || !diagonalJump || isWallAt(x, y)) {
+        infoText.textContent = "Kurbağa sadece çapraz yönde en fazla 2 kare sıçrayabilir.";
         return false;
       }
       const occ = getPlayerAt(x, y);
@@ -1831,12 +2046,13 @@
     function useTricksterAbility(player, x, y) {
       const dx = Math.abs(player.x - x);
       const dy = Math.abs(player.y - y);
+      const range = tricksterCastRange();
       if (player.trapCharges <= 0) {
         infoText.textContent = "Tuzak hakkın kalmadı.";
         return false;
       }
-      if (Math.max(dx, dy) !== 1 || !isTileEmptyForUtility(x, y)) {
-        infoText.textContent = "Tuzak bitişik boş kareye kurulur.";
+      if (Math.max(dx, dy) > range || !isTileEmptyForUtility(x, y)) {
+        infoText.textContent = `Tuzak en fazla ${range} kare uzağa kurulabilir.`;
         return false;
       }
       const activeTrap = game.obstacles.some(o => o.type === "deadlyTrap" && o.ownerTeam === player.team);
@@ -1887,7 +2103,7 @@
       const cfg = CHARACTERS[player.characterId];
       const handlers = {
         minoto: () => useMinotoAbility(player, x, y),
-        hunter: () => useHunterAbility(player),
+        hunter: () => useHunterAbility(player, x, y),
         builder: () => useBuilderAbility(player, x, y),
         portal: () => usePortalAbility(player, x, y),
         frog: () => useFrogAbility(player, x, y),
@@ -1902,7 +2118,7 @@
 
       const success = handler();
       if (success) {
-        player.cooldown = cfg.cooldown;
+        player.pendingCooldown = cfg.cooldown;
         player.abilityUsedThisTurn = true;
         player.freeActionAfterAbility = Boolean(cfg.freeActionAfterAbility);
         playSound("ability");
@@ -1924,6 +2140,26 @@
         if (obstacle.type === "wall") {
           ctx.fillStyle = "#64748b";
           ctx.fillRect(obstacle.x * TILE + 6, obstacle.y * TILE + 6, TILE - 12, TILE - 12);
+          continue;
+        }
+        if (obstacle.type === "castle") {
+          const auraX = (obstacle.x - 1) * TILE;
+          const auraY = (obstacle.y - 1) * TILE;
+          ctx.fillStyle = obstacle.ownerTeam === 1 ? "rgba(37,99,235,0.12)" : "rgba(220,38,38,0.12)";
+          ctx.fillRect(auraX, auraY, TILE * 3, TILE * 3);
+
+          ctx.fillStyle = obstacle.ownerTeam === 1 ? "#60a5fa" : "#f87171";
+          ctx.fillRect(obstacle.x * TILE + 7, obstacle.y * TILE + 7, TILE - 14, TILE - 14);
+
+          ctx.fillStyle = "#ffffff";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.font = `bold ${Math.max(10, Math.round(TILE * 0.18))}px sans-serif`;
+          ctx.fillText("🏰", obstacle.x * TILE + TILE / 2, obstacle.y * TILE + TILE / 2 - TILE * 0.05);
+
+          ctx.font = `bold ${Math.max(8, Math.round(TILE * 0.12))}px sans-serif`;
+          const shownTurns = Math.max(1, obstacle.turnsLeft - 1);
+          ctx.fillText(String(shownTurns), obstacle.x * TILE + TILE / 2, obstacle.y * TILE + TILE * 0.2);
           continue;
         }
         ctx.fillStyle = obstacle.type === "deadlyTrap" ? "rgba(239,68,68,0.3)" : "rgba(249,115,22,0.32)";
@@ -2190,6 +2426,9 @@
 
     function drawPlayers() {
       for (const p of game.players) {
+        if (p.hp <= 0) {
+          continue;
+        }
         const cx = p.x * TILE + TILE / 2;
         const cy = p.y * TILE + TILE / 2;
         const character = CHARACTERS[p.characterId];
@@ -2241,6 +2480,45 @@
       }
     }
 
+    function drawVictoryEffects() {
+      if (!isGameOver()) {
+        return;
+      }
+
+      const team = game.winnerTeam || winnerTeam();
+      if (!team) {
+        return;
+      }
+
+      const winner = playerByTeam(team);
+      if (!winner || winner.hp <= 0) {
+        return;
+      }
+
+      const cx = winner.x * TILE + TILE / 2;
+      const cy = winner.y * TILE + TILE / 2;
+      const pulse = (Math.sin(performance.now() / 180) + 1) / 2;
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = teamLightColor(team);
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.45 + pulse * 0.35;
+      ctx.beginPath();
+      ctx.arc(cx, cy, TILE * (0.42 + pulse * 0.22), 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = "rgba(15,23,42,0.7)";
+      ctx.fillRect(10, 8, Math.min(canvas.width - 20, 260), 30);
+      ctx.fillStyle = "#f8fafc";
+      ctx.font = `bold ${Math.max(13, Math.round(TILE * 0.28))}px sans-serif`;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`${winner.name} kazandı!`, 18, 23);
+      ctx.restore();
+    }
+
     function updateAbilityButton() {
       const p = currentPlayer();
       if (!p || !game.started) {
@@ -2256,6 +2534,7 @@
     function render() {
       drawBoard();
       drawPlayers();
+      drawVictoryEffects();
 
       const p1 = playerByTeam(1);
       const p2 = playerByTeam(2);
@@ -2272,19 +2551,7 @@
       document.getElementById("p2bar").style.width = `${Math.max(0, (p2.hp / MAX_HP) * 100)}%`;
       document.getElementById("p2powers").innerHTML = powerSummaryHTML(p2);
 
-      if (game.paused) {
-        statusText.textContent = "Oyun duraklatıldı.";
-      } else if (game.started) {
-        const spawnText = game.spawnMode === "random" ? "Rastgele" : "Sabit";
-        const viewFlags = `Tehlike:${viewState.showDanger ? "Aç" : "Kap"} Koord:${viewState.showCoords ? "Aç" : "Kap"} RK:${viewState.colorblindMode ? "Aç" : "Kap"}`;
-        statusText.textContent = `${game.mapLabel} ${GRID}x${GRID} (${spawnText}) | Tur:${game.turnNumber} | Duvar:${WALL_COUNT} Tuzak:${MAP_TRAP_COUNT} Güç:${game.powerups.length} Bekleyen:${game.pendingPowerups.length} | ${active.name} | ${CHARACTERS[active.characterId].label} | ${abilityLabelForPlayer(active)} | CD: ${active.cooldown} | ${viewFlags}`;
-      } else {
-        statusText.textContent = "Maç başında karakterini seç.";
-      }
-
-      if (isGameOver()) {
-        infoText.textContent = `Oyun bitti. Kazanan: ${winnerName()}! 🏆`;
-      }
+      registerWinnerIfNeeded();
 
       updateAbilityButton();
       updateSmartTip();
@@ -2300,6 +2567,19 @@
       lastLoggedInfo = "";
       resetCombatLog();
       infoText.textContent = "Maç başladı. Bu tur hareket ya da yetenek seç.";
+      render();
+    }
+
+    function returnToStartMenu() {
+      game = newGameState();
+      game.started = false;
+      game.paused = false;
+      menuOverlay.classList.remove("hidden");
+      setHelpVisible(false);
+      pauseBtn.textContent = "Duraklat";
+      lastLoggedInfo = "";
+      resetCombatLog();
+      infoText.textContent = "Oyununu seç ve yeşil karelere hareket et.";
       render();
     }
 
@@ -2324,9 +2604,29 @@
       player.x = x;
       player.y = y;
       playSound("move");
+
+      const usedSpeed = player.powers.speed && Math.max(Math.abs(x - originX), Math.abs(y - originY)) > 1;
+      const usedDiagonal = player.powers.diagonal && x !== originX && y !== originY;
+      const usedJump = player.powers.jump && lineIntersectsWall(originX, originY, x, y);
+
+      if (usedSpeed) {
+        player.powers.speed = false;
+      }
+      if (usedDiagonal) {
+        player.powers.diagonal = false;
+        player.diagonalExpiresAtTurn = 0;
+      }
+      if (usedJump) {
+        player.powers.jump = false;
+      }
+
       applyPortalTransit(player);
 
       checkMapTrapDamage(player);
+      checkCastleAuraDamage(player);
+      if (player.hp <= 0) {
+        return true;
+      }
 
       if (checkDeadlyTrap(player)) {
         return true;
@@ -2374,7 +2674,7 @@
         return;
       }
 
-      if (player.freeActionAfterAbility) {
+      if (player.freeActionAfterAbility && !player.abilityArmed) {
         const success = handleMove(player, x, y);
         if (!success) {
           render();
@@ -2445,7 +2745,7 @@
     resetBtn.addEventListener("click", () => {
       ensureAudioContext();
       playSound("button");
-      restart();
+      returnToStartMenu();
     });
     abilityBtn.addEventListener("click", () => {
       ensureAudioContext();
@@ -2524,6 +2824,7 @@
     resetCombatLog();
     setHelpVisible(false);
     updateAccessibilityButtons();
+    updateWinCounter();
     game = newGameState();
     requestAnimationFrame(gameLoop);
   </script>
