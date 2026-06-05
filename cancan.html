@@ -236,6 +236,14 @@
       min-height: 1.2em;
     }
 
+    .online-share-row {
+      margin-top: 8px;
+    }
+
+    .online-share-row button {
+      width: 100%;
+    }
+
     .button-secondary {
       background: linear-gradient(135deg, #1e293b, #334155);
       color: #e2e8f0;
@@ -744,6 +752,9 @@
             <label for="serverUrl">WS Sunucu URL</label>
             <input id="serverUrl" type="text" placeholder="wss://<senin-server-adresin> veya ws://localhost:8787" value="" style="width:100%;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(15,23,42,0.8);color:#f1f5f9;padding:10px;font-size:0.92rem;" />
           </div>
+          <div class="online-share-row">
+            <button id="copyInviteBtn" type="button" class="button-secondary">Davet Linki Kopyala</button>
+          </div>
           <div id="networkStatus" class="network-status">Online ayarlar hazır.</div>
         </div>
       </div>
@@ -802,6 +813,7 @@
     const onlineRoleSelect = document.getElementById("onlineRole");
     const roomCodeInput = document.getElementById("roomCode");
     const serverUrlInput = document.getElementById("serverUrl");
+    const copyInviteBtn = document.getElementById("copyInviteBtn");
     const networkStatus = document.getElementById("networkStatus");
     const p1WinsEl = document.getElementById("p1Wins");
     const p2WinsEl = document.getElementById("p2Wins");
@@ -939,13 +951,84 @@
       return String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
     }
 
-    function wsUrlFromQuery() {
+    function readSearchParams() {
       try {
-        const params = new URLSearchParams(globalThis.location.search || "");
-        return normalizeServerUrl(params.get("ws") || "");
+        return new URLSearchParams(globalThis.location.search || "");
       } catch {
-        return "";
+        return new URLSearchParams();
       }
+    }
+
+    function wsUrlFromQuery() {
+      const params = readSearchParams();
+      return normalizeServerUrl(params.get("ws") || "");
+    }
+
+    function applyOnlinePresetFromQuery() {
+      const params = readSearchParams();
+      if (![...params.keys()].length) {
+        return;
+      }
+
+      const mode = params.get("mode");
+      if (mode === "online") {
+        gameModeSelect.value = "online";
+      }
+
+      const role = params.get("role");
+      if (role === "host" || role === "join") {
+        onlineRoleSelect.value = role;
+      }
+
+      const room = sanitizeRoomCode(params.get("room"));
+      if (room) {
+        roomCodeInput.value = room;
+      }
+
+      const wsFromQuery = normalizeServerUrl(params.get("ws"));
+      if (wsFromQuery) {
+        serverUrlInput.value = wsFromQuery;
+        localStorage.setItem("cancan_ws_url", wsFromQuery);
+      }
+
+      updateOnlineConfigVisibility();
+      setNetworkStatus("Davet linki ayarları yüklendi.");
+    }
+
+    function buildJoinInviteLink() {
+      const wsUrl = normalizeServerUrl(serverUrlInput.value) || detectDefaultWsUrl();
+      const roomCode = sanitizeRoomCode(roomCodeInput.value) || sanitizeRoomCode(`CANCAN${Math.floor(Math.random() * 900 + 100)}`);
+
+      roomCodeInput.value = roomCode;
+      serverUrlInput.value = wsUrl;
+
+      const params = new URLSearchParams();
+      params.set("mode", "online");
+      params.set("role", "join");
+      params.set("room", roomCode);
+      params.set("ws", wsUrl);
+
+      return `${globalThis.location.origin}${globalThis.location.pathname}?${params.toString()}`;
+    }
+
+    async function copyInviteLink() {
+      if (!isOnlineModeSelected()) {
+        setNetworkStatus("Önce Oyun Modu: Online seç.", true);
+        return;
+      }
+      const inviteLink = buildJoinInviteLink();
+      try {
+        if (globalThis.navigator?.clipboard?.writeText) {
+          await globalThis.navigator.clipboard.writeText(inviteLink);
+          setNetworkStatus("Davet linki kopyalandı. Arkadaşın linkten Join olabilir.");
+          return;
+        }
+      } catch (err) {
+        console.warn("Clipboard yazılamadı:", err);
+      }
+
+      globalThis.prompt("Davet linkini kopyala:", inviteLink);
+      setNetworkStatus("Davet linki oluşturuldu.");
     }
 
     function detectDefaultWsUrl() {
@@ -3289,6 +3372,9 @@
         roomCodeInput.value = sanitizeRoomCode(`CANCAN${Math.floor(Math.random() * 900 + 100)}`);
       }
     });
+    copyInviteBtn.addEventListener("click", () => {
+      copyInviteLink();
+    });
 
     document.addEventListener("keydown", e => {
       if (e.repeat) {
@@ -3325,6 +3411,7 @@
     loadInitialWsUrl();
     updateOnlineConfigVisibility();
     setNetworkStatus(defaultNetworkStatusText());
+    applyOnlinePresetFromQuery();
     observeInfoTextForLog();
     resetCombatLog();
     setHelpVisible(false);
