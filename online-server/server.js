@@ -117,149 +117,191 @@ function broadcast(roomCode, payload, exceptWs = null) {
   }
 }
 
+function clearSocketIdentity(ws) {
+  ws.role = null;
+  ws.roomCode = null;
+}
+
+function canSocketOperateInRoom(ws, roomCode, room) {
+  return Boolean(roomCode && room && ws.roomCode === roomCode && room.members.has(ws));
+}
+
+function resolveActiveRoom(ws, packet) {
+  const roomCode = normalizeRoomCode(packet.roomCode || ws.roomCode);
+  const room = getRoom(roomCode);
+  if (!canSocketOperateInRoom(ws, roomCode, room)) {
+    return null;
+  }
+  return { roomCode, room };
+}
+
+function rejectIfNotRole(ws, roomCode, expectedRole, message) {
+  if (ws.role === expectedRole) {
+    return false;
+  }
+  sendStateSync(ws, roomCode, message);
+  return true;
+}
+
+function handleJoinRoom(ws, packet) {
+  const roomCode = normalizeRoomCode(packet.roomCode);
+  if (!roomCode) {
+    sendStateSync(ws, "", "Geçersiz oda kodu");
+    return;
+  }
+
+  const incomingClientId = String(packet.clientId || "").trim();
+  if (!incomingClientId) {
+    sendStateSync(ws, roomCode, "clientId gerekli");
+    return;
+  }
+
+  const incomingRole = packet.role === "join" ? "join" : "host";
+
+  removeFromRoom(ws);
+
+  ws.clientId = incomingClientId;
+  ws.role = incomingRole;
+  ws.roomCode = roomCode;
+
+  const room = getOrCreateRoom(roomCode);
+  if (incomingRole === "host" && room.hostWs && room.hostWs !== ws) {
+    sendStateSync(ws, roomCode, "Bu odada zaten host var");
+    clearSocketIdentity(ws);
+    return;
+  }
+  if (incomingRole === "join" && room.joinWs && room.joinWs !== ws) {
+    sendStateSync(ws, roomCode, "Bu odada zaten join oyuncusu var");
+    clearSocketIdentity(ws);
+    return;
+  }
+
+  room.members.add(ws);
+  if (incomingRole === "host") {
+    room.hostWs = ws;
+  } else {
+    room.joinWs = ws;
+  }
+  if (room.hostWs && room.joinWs) {
+    room.started = true;
+  }
+
+  sendStateSync(ws, roomCode, `Odaya bağlandın (${roomOccupancyText(room)})`);
+  broadcast(roomCode, {
+    type: "peer-joined",
+    roomCode,
+    clientId: ws.clientId,
+    role: ws.role
+  }, ws);
+}
+
+function handleActionRequest(ws, packet, roomCode, room) {
+  if (rejectIfNotRole(ws, roomCode, "join", "Sadece join oyuncusu action-request atabilir")) {
+    return;
+  }
+  if (!room.started || !room.hostWs) {
+    sendStateSync(ws, roomCode, "Host hazır değil");
+    return;
+  }
+  if (!isValidAction(packet.action)) {
+    sendStateSync(ws, roomCode, "Geçersiz hamle paketi");
+    return;
+  }
+  if (room.latestTurn !== expectedTeamForRole(ws.role)) {
+    sendStateSync(ws, roomCode, "Sıra sende değil");
+    return;
+  }
+
+  sendJson(room.hostWs, {
+    ...packet,
+    roomCode
+  });
+}
+
+function handleAction(ws, packet, roomCode) {
+  if (rejectIfNotRole(ws, roomCode, "host", "Sadece host action yayabilir")) {
+    return;
+  }
+  if (!isValidAction(packet.action)) {
+    sendStateSync(ws, roomCode, "Geçersiz action paketi");
+    return;
+  }
+
+  broadcast(roomCode, {
+    ...packet,
+    roomCode
+  }, ws);
+}
+
+function handleStateSnapshot(ws, packet, roomCode, room) {
+  if (rejectIfNotRole(ws, roomCode, "host", "Sadece host snapshot gönderebilir")) {
+    return;
+  }
+
+  const snapshot = packet.state;
+  if (!snapshot || typeof snapshot !== "object") {
+    sendStateSync(ws, roomCode, "Geçersiz snapshot");
+    return;
+  }
+  if (!Number.isInteger(snapshot.turn) || ![1, 2].includes(snapshot.turn)) {
+    sendStateSync(ws, roomCode, "Snapshot turn alanı geçersiz");
+    return;
+  }
+
+  room.latestTurn = snapshot.turn;
+  room.started = Boolean(snapshot.started);
+  broadcast(roomCode, {
+    ...packet,
+    roomCode
+  }, ws);
+}
+
+function handlePacketByType(ws, packet) {
+  if (packet.type === "join-room") {
+    handleJoinRoom(ws, packet);
+    return;
+  }
+
+  const activeRoom = resolveActiveRoom(ws, packet);
+  if (!activeRoom) {
+    return;
+  }
+
+  const { roomCode, room } = activeRoom;
+  if (packet.type === "action-request") {
+    handleActionRequest(ws, packet, roomCode, room);
+    return;
+  }
+  if (packet.type === "action") {
+    handleAction(ws, packet, roomCode);
+    return;
+  }
+  if (packet.type === "state-snapshot") {
+    handleStateSnapshot(ws, packet, roomCode, room);
+  }
+}
+
+function parsePacket(raw) {
+  try {
+    return JSON.parse(String(raw));
+  } catch (err) {
+    console.warn("Invalid ws payload:", err);
+    return null;
+  }
+}
+
 wss.on("connection", ws => {
   ws.clientId = null;
   ws.role = null;
   ws.roomCode = null;
 
   ws.on("message", raw => {
-    let packet;
-    try {
-      packet = JSON.parse(String(raw));
-    } catch (err) {
-      console.warn("Invalid ws payload:", err);
+    const packet = parsePacket(raw);
+    if (!packet?.type) {
       return;
     }
 
-    const type = packet?.type;
-    if (!type) {
-      return;
-    }
-
-    if (type === "join-room") {
-      const roomCode = normalizeRoomCode(packet.roomCode);
-      if (!roomCode) {
-        sendStateSync(ws, "", "Geçersiz oda kodu");
-        return;
-      }
-
-      const incomingClientId = String(packet.clientId || "").trim();
-      if (!incomingClientId) {
-        sendStateSync(ws, roomCode, "clientId gerekli");
-        return;
-      }
-
-      const incomingRole = packet.role === "join" ? "join" : "host";
-
-      removeFromRoom(ws);
-
-      ws.clientId = incomingClientId;
-      ws.role = incomingRole;
-      ws.roomCode = roomCode;
-
-      const room = getOrCreateRoom(roomCode);
-      if (incomingRole === "host" && room.hostWs && room.hostWs !== ws) {
-        sendStateSync(ws, roomCode, "Bu odada zaten host var");
-        ws.role = null;
-        ws.roomCode = null;
-        return;
-      }
-      if (incomingRole === "join" && room.joinWs && room.joinWs !== ws) {
-        sendStateSync(ws, roomCode, "Bu odada zaten join oyuncusu var");
-        ws.role = null;
-        ws.roomCode = null;
-        return;
-      }
-
-      room.members.add(ws);
-      if (incomingRole === "host") {
-        room.hostWs = ws;
-      } else {
-        room.joinWs = ws;
-      }
-
-      if (room.hostWs && room.joinWs) {
-        room.started = true;
-      }
-
-      sendStateSync(ws, roomCode, `Odaya bağlandın (${roomOccupancyText(room)})`);
-
-      broadcast(roomCode, {
-        type: "peer-joined",
-        roomCode,
-        clientId: ws.clientId,
-        role: ws.role
-      }, ws);
-      return;
-    }
-
-    const roomCode = normalizeRoomCode(packet.roomCode || ws.roomCode);
-    const room = getRoom(roomCode);
-    if (!roomCode || !room || ws.roomCode !== roomCode || !room.members.has(ws)) {
-      return;
-    }
-
-    if (type === "action-request") {
-      if (ws.role !== "join") {
-        sendStateSync(ws, roomCode, "Sadece join oyuncusu action-request atabilir");
-        return;
-      }
-      if (!room.started || !room.hostWs) {
-        sendStateSync(ws, roomCode, "Host hazır değil");
-        return;
-      }
-      if (!isValidAction(packet.action)) {
-        sendStateSync(ws, roomCode, "Geçersiz hamle paketi");
-        return;
-      }
-      if (room.latestTurn !== expectedTeamForRole(ws.role)) {
-        sendStateSync(ws, roomCode, "Sıra sende değil");
-        return;
-      }
-      sendJson(room.hostWs, {
-        ...packet,
-        roomCode
-      });
-      return;
-    }
-
-    if (type === "action") {
-      if (ws.role !== "host") {
-        sendStateSync(ws, roomCode, "Sadece host action yayabilir");
-        return;
-      }
-      if (!isValidAction(packet.action)) {
-        sendStateSync(ws, roomCode, "Geçersiz action paketi");
-        return;
-      }
-      broadcast(roomCode, {
-        ...packet,
-        roomCode
-      }, ws);
-      return;
-    }
-
-    if (type === "state-snapshot") {
-      if (ws.role !== "host") {
-        sendStateSync(ws, roomCode, "Sadece host snapshot gönderebilir");
-        return;
-      }
-      const snapshot = packet.state;
-      if (!snapshot || typeof snapshot !== "object") {
-        sendStateSync(ws, roomCode, "Geçersiz snapshot");
-        return;
-      }
-      if (!Number.isInteger(snapshot.turn) || ![1, 2].includes(snapshot.turn)) {
-        sendStateSync(ws, roomCode, "Snapshot turn alanı geçersiz");
-        return;
-      }
-      room.latestTurn = snapshot.turn;
-      room.started = Boolean(snapshot.started);
-      broadcast(roomCode, {
-        ...packet,
-        roomCode
-      }, ws);
-    }
+    handlePacketByType(ws, packet);
   });
 
   ws.on("close", () => {

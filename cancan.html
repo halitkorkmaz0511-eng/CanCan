@@ -915,13 +915,48 @@
       return String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
     }
 
+    function wsUrlFromQuery() {
+      try {
+        const params = new URLSearchParams(globalThis.location.search || "");
+        return normalizeServerUrl(params.get("ws") || "");
+      } catch {
+        return "";
+      }
+    }
+
     function detectDefaultWsUrl() {
+      const queryWsUrl = wsUrlFromQuery();
+      if (queryWsUrl) {
+        return queryWsUrl;
+      }
       const isLocalHost = ["localhost", "127.0.0.1"].includes(globalThis.location.hostname);
       if (isLocalHost) {
         return "ws://localhost:8787";
       }
-      const protocol = globalThis.location.protocol === "https:" ? "wss" : "ws";
-      return `${protocol}://${globalThis.location.host}`;
+      if (globalThis.location.hostname.endsWith("onrender.com")) {
+        const protocol = globalThis.location.protocol === "https:" ? "wss" : "ws";
+        return `${protocol}://${globalThis.location.host}`;
+      }
+      return "";
+    }
+
+    function defaultNetworkStatusText() {
+      return serverUrlInput.value
+        ? "Online ayarlar hazır."
+        : "WS URL gir veya ?ws=wss://... ile aç.";
+    }
+
+    function persistWsUrlFromQueryIfExists() {
+      const queryWsUrl = wsUrlFromQuery();
+      if (queryWsUrl) {
+        localStorage.setItem("cancan_ws_url", queryWsUrl);
+      }
+    }
+
+    function loadInitialWsUrl() {
+      persistWsUrlFromQueryIfExists();
+      const savedWsUrl = normalizeServerUrl(localStorage.getItem("cancan_ws_url"));
+      serverUrlInput.value = savedWsUrl || detectDefaultWsUrl();
     }
 
     function normalizeServerUrl(raw) {
@@ -2993,7 +3028,7 @@
     function returnToStartMenu() {
       closeOnlineConnection();
       onlineState.enabled = false;
-      setNetworkStatus("Online ayarlar hazır.");
+      setNetworkStatus(defaultNetworkStatusText());
       game = newGameState();
       game.started = false;
       game.paused = false;
@@ -3239,10 +3274,9 @@
 
     updatePowerupLegend();
     updateCharacterTips();
-    const savedWsUrl = normalizeServerUrl(localStorage.getItem("cancan_ws_url"));
-    serverUrlInput.value = savedWsUrl || detectDefaultWsUrl();
+    loadInitialWsUrl();
     updateOnlineConfigVisibility();
-    setNetworkStatus("Online ayarlar hazır.");
+    setNetworkStatus(defaultNetworkStatusText());
     observeInfoTextForLog();
     resetCombatLog();
     setHelpVisible(false);
