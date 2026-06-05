@@ -933,6 +933,8 @@
       clientId: `c_${Math.random().toString(36).slice(2, 10)}`
     };
 
+    const PUBLIC_WS_FALLBACK = "wss://cancan-online-ws.onrender.com";
+
     function sanitizeRoomCode(raw) {
       return String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
     }
@@ -959,7 +961,7 @@
         const protocol = globalThis.location.protocol === "https:" ? "wss" : "ws";
         return `${protocol}://${globalThis.location.host}`;
       }
-      return "";
+      return PUBLIC_WS_FALLBACK;
     }
 
     function defaultNetworkStatusText() {
@@ -986,6 +988,13 @@
       if (!value) {
         return "";
       }
+      if (value.startsWith("https://")) {
+        return `wss://${value.slice(8)}`;
+      }
+      if (value.startsWith("http://")) {
+        const wsValue = `ws://${value.slice(7)}`;
+        return globalThis.location.protocol === "https:" ? `wss://${wsValue.slice(5)}` : wsValue;
+      }
       if (globalThis.location.protocol === "https:" && value.startsWith("ws://")) {
         return `wss://${value.slice(5)}`;
       }
@@ -997,7 +1006,12 @@
     }
 
     function updateOnlineConfigVisibility() {
-      onlineConfig.classList.toggle("hidden", !isOnlineModeSelected());
+      const showOnline = isOnlineModeSelected();
+      onlineConfig.classList.toggle("hidden", !showOnline);
+      if (showOnline && !serverUrlInput.value.trim()) {
+        serverUrlInput.value = detectDefaultWsUrl();
+      }
+      setNetworkStatus(defaultNetworkStatusText());
     }
 
     function setNetworkStatus(text, isError = false) {
