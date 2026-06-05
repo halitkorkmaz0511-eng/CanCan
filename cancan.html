@@ -838,6 +838,7 @@
     const HUNTER_SHOT_DAMAGE = 4;
     const FROG_STOMP_DAMAGE = 4;
     const MINOTO_DASH_DAMAGE = 4;
+    const GAMBLER_PREDICTION_TURNS = 7;
 
     const MAPS = {
       classic: { label: "Klasik", grid: 10, walls: 14, traps: 3, powerups: 3 },
@@ -907,7 +908,7 @@
         symbol: "🎲",
         accent: "#a855f7",
         freeActionAfterAbility: true,
-        description: "Tahmin atar ve anında 3 hasar vurur. Tekrar tahmin için 2 tur bekler."
+        description: "Tahmin atar ve anında 3 hasar vurur. Tahmin işareti 7 tur sürer."
       }
     };
 
@@ -2552,7 +2553,9 @@
         return false;
       }
       game.obstacles.push({ type: "castle", ownerTeam: player.team, x, y, turnsLeft: 3 });
-      createEffect("build", x, y, "#22c55e", "🏰");
+      if (canRevealSecretPlacement(player.team)) {
+        createEffect("build", x, y, "#22c55e", "🏰");
+      }
       return true;
     }
 
@@ -2573,7 +2576,9 @@
         ownPortals.shift();
       }
       ownPortals.push({ x, y });
-      createEffect("portal", x, y, "#60a5fa", "🌀");
+      if (canRevealSecretPlacement(player.team)) {
+        createEffect("portal", x, y, "#60a5fa", "🌀");
+      }
       return true;
     }
 
@@ -2625,7 +2630,9 @@
       }
       game.obstacles.push({ type: "deadlyTrap", ownerTeam: player.team, x, y });
       player.trapCharges -= 1;
-      createEffect("trap", x, y, "#ef4444", "🎭");
+      if (canRevealSecretPlacement(player.team)) {
+        createEffect("trap", x, y, "#ef4444", "🎭");
+      }
       return true;
     }
 
@@ -2641,12 +2648,14 @@
         targetTeam: enemy.team,
         x,
         y,
-        turnsLeft: 2
+        turnsLeft: GAMBLER_PREDICTION_TURNS
       });
-      createEffect("portal", x, y, "#a855f7", "🎲");
+      if (canRevealSecretPlacement(player.team)) {
+        createEffect("portal", x, y, "#a855f7", "🎲");
+      }
 
       if (!sameLineAndClear(player, enemy)) {
-        infoText.textContent = "Tahmin kuruldu. Kalan: 2 tur. Düz görüş yok, anlık hasar vurulamadı.";
+        infoText.textContent = `Tahmin kuruldu. Kalan: ${GAMBLER_PREDICTION_TURNS} tur. Düz görüş yok, anlık hasar vurulamadı.`;
         return true;
       }
 
@@ -2658,7 +2667,7 @@
           createEffect("trap", enemy.x, enemy.y, "#fb7185", "💥");
         }
       }
-      infoText.textContent = "Tahmin kuruldu. Kalan: 2 tur. Anında 3 hasar vuruldu.";
+      infoText.textContent = `Tahmin kuruldu. Kalan: ${GAMBLER_PREDICTION_TURNS} tur. Anında 3 hasar vuruldu.`;
       return true;
     }
 
@@ -2700,6 +2709,13 @@
 
     function visibleSecretOwnerTeam() {
       return onlineState.enabled ? onlineState.localTeam : game.turn;
+    }
+
+    function canRevealSecretPlacement(ownerTeam) {
+      if (!onlineState.enabled) {
+        return true;
+      }
+      return ownerTeam === onlineState.localTeam;
     }
 
     function drawCastleObstacle(obstacle) {
