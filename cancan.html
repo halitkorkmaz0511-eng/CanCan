@@ -213,6 +213,17 @@
       font-size: 0.92rem;
     }
 
+    .online-config.hidden {
+      display: none;
+    }
+
+    .network-status {
+      margin-top: 8px;
+      font-size: 0.76rem;
+      color: #93c5fd;
+      min-height: 1.2em;
+    }
+
     .button-secondary {
       background: linear-gradient(135deg, #1e293b, #334155);
       color: #e2e8f0;
@@ -649,6 +660,13 @@
       </div>
       <div class="menu-picks">
         <div class="menu-pick">
+          <label for="gameMode">Oyun Modu</label>
+          <select id="gameMode">
+            <option value="local">Yerel (Aynı Cihaz)</option>
+            <option value="online">Online (Hazırlık)</option>
+          </select>
+        </div>
+        <div class="menu-pick">
           <label for="mapSelect">Harita Seçimi</label>
           <select id="mapSelect">
             <option value="classic">Klasik (10x10)</option>
@@ -687,6 +705,24 @@
             <option value="trickster">🎭 Tuzakçı (Kurnaz)</option>
             <option value="gambler">🎲 Kumarbaz (Stratejist)</option>
           </select>
+        </div>
+        <div id="onlineConfig" class="online-config hidden">
+          <div class="menu-pick">
+            <label for="onlineRole">Rol</label>
+            <select id="onlineRole">
+              <option value="host">Host (Mavi)</option>
+              <option value="join">Join (Kırmızı)</option>
+            </select>
+          </div>
+          <div class="menu-pick">
+            <label for="roomCode">Oda Kodu</label>
+            <input id="roomCode" type="text" maxlength="10" placeholder="Örn: CANCAN01" style="width:100%;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(15,23,42,0.8);color:#f1f5f9;padding:10px;font-size:0.92rem;" />
+          </div>
+          <div class="menu-pick">
+            <label for="serverUrl">WS Sunucu URL</label>
+            <input id="serverUrl" type="text" placeholder="wss://<senin-server-adresin> veya ws://localhost:8787" value="" style="width:100%;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(15,23,42,0.8);color:#f1f5f9;padding:10px;font-size:0.92rem;" />
+          </div>
+          <div id="networkStatus" class="network-status">Online ayarlar hazır.</div>
         </div>
       </div>
       <div class="menu-actions">
@@ -735,10 +771,16 @@
     const soundBtn = document.getElementById("soundBtn");
     const helpOverlay = document.getElementById("helpOverlay");
     const smartTip = document.getElementById("smartTip");
+    const gameModeSelect = document.getElementById("gameMode");
     const mapSelect = document.getElementById("mapSelect");
     const spawnSelect = document.getElementById("spawnSelect");
     const p1CharacterSelect = document.getElementById("p1Character");
     const p2CharacterSelect = document.getElementById("p2Character");
+    const onlineConfig = document.getElementById("onlineConfig");
+    const onlineRoleSelect = document.getElementById("onlineRole");
+    const roomCodeInput = document.getElementById("roomCode");
+    const serverUrlInput = document.getElementById("serverUrl");
+    const networkStatus = document.getElementById("networkStatus");
     const p1WinsEl = document.getElementById("p1Wins");
     const p2WinsEl = document.getElementById("p2Wins");
 
@@ -755,7 +797,13 @@
     const POWERUP_SPAWN_INTERVAL = 3;
     const POWERUP_WARNING_TURNS = 1;
     const POWERUP_MIN_PLAYER_DIST = 3;
+    const MAP_POWER_ACTIVE_TURNS = 4;
     const CASTLE_AURA_DAMAGE = 2;
+    const CONTACT_DAMAGE = 2;
+    const PORTAL_BLOCK_DAMAGE = 1;
+    const HUNTER_SHOT_DAMAGE = 4;
+    const FROG_STOMP_DAMAGE = 4;
+    const MINOTO_DASH_DAMAGE = 4;
 
     const MAPS = {
       classic: { label: "Klasik", grid: 10, walls: 14, traps: 3, powerups: 3 },
@@ -838,6 +886,7 @@
     };
 
     const MAP_POWER_TYPES = ["speed", "diagonal", "jump", "shield"];
+    const TIMED_MAP_POWER_TYPES = ["speed", "diagonal", "shield"];
 
     let game = null;
     let lastFrameTime = 0;
@@ -850,6 +899,296 @@
       showCoords: true,
       colorblindMode: false
     };
+
+    const onlineState = {
+      enabled: false,
+      connected: false,
+      ws: null,
+      role: "host",
+      roomCode: "",
+      localTeam: 1,
+      serverUrl: "",
+      clientId: `c_${Math.random().toString(36).slice(2, 10)}`
+    };
+
+    function sanitizeRoomCode(raw) {
+      return String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
+    }
+
+    function detectDefaultWsUrl() {
+      const isLocalHost = ["localhost", "127.0.0.1"].includes(globalThis.location.hostname);
+      if (isLocalHost) {
+        return "ws://localhost:8787";
+      }
+      const protocol = globalThis.location.protocol === "https:" ? "wss" : "ws";
+      return `${protocol}://${globalThis.location.host}`;
+    }
+
+    function normalizeServerUrl(raw) {
+      const value = String(raw || "").trim();
+      if (!value) {
+        return "";
+      }
+      if (globalThis.location.protocol === "https:" && value.startsWith("ws://")) {
+        return `wss://${value.slice(5)}`;
+      }
+      return value;
+    }
+
+    function isOnlineModeSelected() {
+      return gameModeSelect.value === "online";
+    }
+
+    function updateOnlineConfigVisibility() {
+      onlineConfig.classList.toggle("hidden", !isOnlineModeSelected());
+    }
+
+    function setNetworkStatus(text, isError = false) {
+      if (!networkStatus) {
+        return;
+      }
+      networkStatus.textContent = text;
+      networkStatus.style.color = isError ? "#fca5a5" : "#93c5fd";
+    }
+
+    function closeOnlineConnection() {
+      if (!onlineState.ws) {
+        onlineState.connected = false;
+        return;
+      }
+      try {
+        onlineState.ws.close();
+      } catch (err) {
+        console.warn("Online soket kapatma hatası:", err);
+      }
+      onlineState.ws = null;
+      onlineState.connected = false;
+    }
+
+    function sendOnlineMessage(payload) {
+      if (!onlineState.enabled || !onlineState.connected || !onlineState.ws) {
+        return;
+      }
+      onlineState.ws.send(JSON.stringify(payload));
+    }
+
+    function cloneGameSnapshot() {
+      return globalThis.structuredClone(game);
+    }
+
+    function applyStateSnapshot(snapshot) {
+      if (!snapshot || typeof snapshot !== "object") {
+        return;
+      }
+      game = snapshot;
+      render();
+    }
+
+    function broadcastSnapshotIfHost(reason = "sync") {
+      if (!onlineState.enabled || onlineState.role !== "host") {
+        return;
+      }
+      sendOnlineMessage({
+        type: "state-snapshot",
+        roomCode: onlineState.roomCode,
+        clientId: onlineState.clientId,
+        reason,
+        state: cloneGameSnapshot()
+      });
+    }
+
+    function applyRemoteAction(action) {
+      if (!action || typeof action !== "object") {
+        return;
+      }
+      if (action.type === "board") {
+        handleBoardAction(action.x, action.y);
+        return;
+      }
+      if (action.type === "ability") {
+        armAbility();
+        return;
+      }
+      if (action.type === "skip") {
+        skipTurn();
+      }
+    }
+
+    function canControlCurrentTurnLocally() {
+      if (!onlineState.enabled) {
+        return true;
+      }
+      const player = currentPlayer();
+      return Boolean(player) && player.team === onlineState.localTeam;
+    }
+
+    function dispatchLocalAction(action) {
+      if (!game.started || game.paused || isGameOver()) {
+        return;
+      }
+      if (!canControlCurrentTurnLocally()) {
+        infoText.textContent = "Online modda sıra rakipte.";
+        return;
+      }
+
+      if (onlineState.enabled && onlineState.role === "join") {
+        sendOnlineMessage({
+          type: "action-request",
+          roomCode: onlineState.roomCode,
+          clientId: onlineState.clientId,
+          action
+        });
+        return;
+      }
+
+      if (action.type === "board") {
+        handleBoardAction(action.x, action.y);
+      } else if (action.type === "ability") {
+        armAbility();
+      } else if (action.type === "skip") {
+        skipTurn();
+      }
+
+      if (onlineState.enabled) {
+        sendOnlineMessage({
+          type: "action",
+          roomCode: onlineState.roomCode,
+          clientId: onlineState.clientId,
+          action
+        });
+        broadcastSnapshotIfHost("host-action");
+      }
+    }
+
+    function enterOnlineJoinWaiting() {
+      game = newGameState();
+      game.started = false;
+      game.paused = false;
+      menuOverlay.classList.add("hidden");
+      setHelpVisible(false);
+      pauseBtn.textContent = "Duraklat";
+      lastLoggedInfo = "";
+      resetCombatLog();
+      infoText.textContent = `Oda ${onlineState.roomCode} için host bekleniyor...`;
+      render();
+    }
+
+    function connectOnlineTransport() {
+      closeOnlineConnection();
+      if (!onlineState.serverUrl) {
+        setNetworkStatus("WS URL gerekli.", true);
+        return;
+      }
+
+      try {
+        const ws = new WebSocket(onlineState.serverUrl);
+        onlineState.ws = ws;
+        setNetworkStatus("Bağlanıyor...");
+
+        ws.addEventListener("open", () => {
+          onlineState.connected = true;
+          setNetworkStatus(`Bağlandı | Oda: ${onlineState.roomCode}`);
+          sendOnlineMessage({
+            type: "join-room",
+            roomCode: onlineState.roomCode,
+            role: onlineState.role,
+            clientId: onlineState.clientId
+          });
+        });
+
+        ws.addEventListener("message", event => {
+          let packet = null;
+          try {
+            packet = JSON.parse(event.data);
+          } catch (err) {
+            console.warn("Online mesaj parse hatası:", err);
+            return;
+          }
+          if (!packet || packet.roomCode !== onlineState.roomCode) {
+            return;
+          }
+          if (packet.type === "peer-joined" && onlineState.role === "host") {
+            broadcastSnapshotIfHost("peer-joined");
+            return;
+          }
+          if (packet.type === "action-request" && onlineState.role === "host" && packet.clientId !== onlineState.clientId) {
+            applyRemoteAction(packet.action);
+            sendOnlineMessage({
+              type: "action",
+              roomCode: onlineState.roomCode,
+              clientId: onlineState.clientId,
+              action: packet.action
+            });
+            broadcastSnapshotIfHost("remote-action-accepted");
+            return;
+          }
+          if (packet.type === "action" && packet.clientId !== onlineState.clientId) {
+            if (onlineState.role !== "host") {
+              applyRemoteAction(packet.action);
+            }
+            return;
+          }
+          if (packet.type === "state-snapshot" && packet.clientId !== onlineState.clientId) {
+            applyStateSnapshot(packet.state);
+            return;
+          }
+          if (packet.type === "state-sync" && typeof packet.message === "string") {
+            setNetworkStatus(packet.message);
+          }
+        });
+
+        ws.addEventListener("close", () => {
+          onlineState.connected = false;
+          setNetworkStatus("Bağlantı kapandı.", true);
+        });
+
+        ws.addEventListener("error", () => {
+          onlineState.connected = false;
+          setNetworkStatus("Sunucu bağlantı hatası. Yerel test yapılabilir.", true);
+        });
+      } catch (err) {
+        console.warn("Online transport başlatılamadı:", err);
+        onlineState.connected = false;
+        setNetworkStatus("WS başlatılamadı.", true);
+      }
+    }
+
+    function startConfiguredGame() {
+      if (!isOnlineModeSelected()) {
+        onlineState.enabled = false;
+        closeOnlineConnection();
+        restart();
+        return;
+      }
+
+      onlineState.enabled = true;
+      onlineState.role = onlineRoleSelect.value;
+      onlineState.localTeam = onlineState.role === "host" ? 1 : 2;
+      onlineState.serverUrl = normalizeServerUrl(serverUrlInput.value);
+      serverUrlInput.value = onlineState.serverUrl;
+      if (onlineState.serverUrl) {
+        localStorage.setItem("cancan_ws_url", onlineState.serverUrl);
+      }
+
+      const typedRoom = sanitizeRoomCode(roomCodeInput.value);
+      if (onlineState.role === "join" && !typedRoom) {
+        setNetworkStatus("Join için oda kodu gir.", true);
+        return;
+      }
+
+      onlineState.roomCode = typedRoom || sanitizeRoomCode(`CANCAN${Math.floor(Math.random() * 900 + 100)}`);
+      roomCodeInput.value = onlineState.roomCode;
+
+      connectOnlineTransport();
+      if (onlineState.role === "host") {
+        restart();
+        infoText.textContent = `Online host açıldı. Oda: ${onlineState.roomCode}`;
+        broadcastSnapshotIfHost("host-start");
+      } else {
+        enterOnlineJoinWaiting();
+        infoText.textContent = `Online odaya katıldın: ${onlineState.roomCode}`;
+      }
+    }
 
     const TEAM_PALETTES = {
       default: {
@@ -1255,16 +1594,17 @@
           if (d1 < minDist || d2 < minDist) {
             continue;
           }
-          candidates.push({ x, y, d1, d2, diff: Math.abs(d1 - d2), sum: d1 + d2 });
+          candidates.push({ x, y });
         }
       }
 
-      candidates.sort((a, b) => {
-        if (a.diff !== b.diff) {
-          return a.diff - b.diff;
-        }
-        return a.sum - b.sum;
-      });
+      // Shuffle candidates so spawn positions are fully random each wave.
+      for (let i = candidates.length - 1; i > 0; i--) {
+        const j = randomInt(i + 1);
+        const temp = candidates[i];
+        candidates[i] = candidates[j];
+        candidates[j] = temp;
+      }
 
       const picked = [];
       for (const candidate of candidates) {
@@ -1378,6 +1718,8 @@
             abilityUsedThisTurn: false,
             pendingPowerup: null,
             diagonalExpiresAtTurn: 0,
+            mapPowerTurnsLeft: 0,
+            mapPowerLockTurns: 0,
             powers: { speed: false, diagonal: false, jump: false, shield: false }
           },
           {
@@ -1400,6 +1742,8 @@
             abilityUsedThisTurn: false,
             pendingPowerup: null,
             diagonalExpiresAtTurn: 0,
+            mapPowerTurnsLeft: 0,
+            mapPowerLockTurns: 0,
             powers: { speed: false, diagonal: false, jump: false, shield: false }
           }
         ],
@@ -1426,6 +1770,12 @@
       if (player.powers.diagonal) { pips.push("<span class='power-pip'>✦ Çapraz</span>"); }
       if (player.powers.jump) { pips.push("<span class='power-pip'>↑ Atlama</span>"); }
       if (player.powers.shield) { pips.push("<span class='power-pip'>🛡 Kalkan</span>"); }
+      if (TIMED_MAP_POWER_TYPES.some(powerType => player.powers[powerType]) && player.mapPowerTurnsLeft > 0) {
+        pips.push(`<span class='power-pip'>⏱ Güç Süresi: ${player.mapPowerTurnsLeft}</span>`);
+      }
+      if (player.mapPowerLockTurns > 0) {
+        pips.push(`<span class='power-pip'>🔒 Yeni Güç: ${player.mapPowerLockTurns} tur</span>`);
+      }
       if (player.characterId === "trickster") {
         pips.push(`<span class='power-pip'>🕳 Tuzak: ${player.trapCharges}</span>`);
       }
@@ -1572,11 +1922,9 @@
         player.powers[powerType] = false;
       }
       player.diagonalExpiresAtTurn = 0;
+      player.mapPowerLockTurns = 0;
       player.powers[picked.type] = true;
-      if (picked.type === "diagonal") {
-        // Diagonal can be used only for one own turn window.
-        player.diagonalExpiresAtTurn = game.turnNumber + 2;
-      }
+      player.mapPowerTurnsLeft = TIMED_MAP_POWER_TYPES.includes(picked.type) ? MAP_POWER_ACTIVE_TURNS : 0;
       infoText.textContent = `${player.name} ${POWERUP_META[picked.type].label} gücünü aldı!`;
       createEffect("powerup", player.x, player.y, POWERUP_META[picked.type].color);
       playSound("powerup");
@@ -1587,9 +1935,28 @@
     }
 
     function expireTimedMapPowers(player) {
-      if (player.powers.diagonal && player.diagonalExpiresAtTurn > 0 && game.turnNumber > player.diagonalExpiresAtTurn) {
-        player.powers.diagonal = false;
-        player.diagonalExpiresAtTurn = 0;
+      const hasTimedMapPower = TIMED_MAP_POWER_TYPES.some(powerType => player.powers[powerType]);
+      if (hasTimedMapPower) {
+        if (player.mapPowerTurnsLeft <= 0) {
+          player.mapPowerTurnsLeft = MAP_POWER_ACTIVE_TURNS;
+        }
+        player.mapPowerTurnsLeft -= 1;
+
+        if (player.mapPowerTurnsLeft <= 0) {
+          for (const powerType of TIMED_MAP_POWER_TYPES) {
+            player.powers[powerType] = false;
+          }
+          player.diagonalExpiresAtTurn = 0;
+          player.mapPowerTurnsLeft = 0;
+          player.mapPowerLockTurns = 0;
+          infoText.textContent = `${player.name} süreli harita gücünü kaybetti. Yeni güç hemen alınabilir.`;
+        }
+        return;
+      }
+
+      if (player.mapPowerTurnsLeft > 0) {
+        player.mapPowerTurnsLeft = 0;
+        player.mapPowerLockTurns = 0;
       }
     }
 
@@ -1626,7 +1993,11 @@
       }
 
       if (hasUnconsumedMapPower(player)) {
-        infoText.textContent = `${player.name} yeni güç alamaz. Önce mevcut güçlerini kullan.`;
+        infoText.textContent = `${player.name} mevcut harita gücü aktif. Süresi bitince yeni güç alabilir.`;
+        return;
+      }
+      if (player.mapPowerLockTurns > 0) {
+        infoText.textContent = `${player.name} ${player.mapPowerLockTurns} tur sonra yeni harita gücü alabilir.`;
         return;
       }
 
@@ -1663,24 +2034,57 @@
       return true;
     }
 
+    function applyCombatDamage(attacker, defender, damage, symbol) {
+      if (applyShieldLogic(attacker, defender)) {
+        return false;
+      }
+
+      defender.hp = Math.max(0, defender.hp - damage);
+      if (defender.hp === 0) {
+        createEffect("kill", defender.x, defender.y, teamColor(attacker.team), symbol);
+        playSound("kill");
+      } else {
+        createEffect("trap", defender.x, defender.y, teamColor(attacker.team), symbol);
+      }
+      return true;
+    }
+
     function applyPortalTransit(player) {
       const portals = game.portals[player.team];
       if (portals.length !== 2) {
         return;
       }
 
+      function tryTransit(destination) {
+        const blocker = getPlayerAt(destination.x, destination.y);
+        if (!blocker) {
+          player.x = destination.x;
+          player.y = destination.y;
+          return;
+        }
+
+        if (blocker.team === player.team) {
+          infoText.textContent = `${player.name} portal çıkışı dolu, ışınlanma iptal.`;
+          return;
+        }
+
+        {
+          const beforeHp = blocker.hp;
+          applyCombatDamage(player, blocker, PORTAL_BLOCK_DAMAGE, "🌀");
+          if (beforeHp === blocker.hp) {
+            infoText.textContent = `${player.name} portal çıkışı dolu. ${blocker.name} kalkanla hasarı engelledi.`;
+          } else {
+            infoText.textContent = `${player.name} portal çıkışı dolu olduğu için ${blocker.name} -${PORTAL_BLOCK_DAMAGE} hasar aldı.`;
+          }
+        }
+      }
+
       if (player.x === portals[0].x && player.y === portals[0].y) {
         const destination = portals[1];
-        if (!getPlayerAt(destination.x, destination.y)) {
-          player.x = destination.x;
-          player.y = destination.y;
-        }
+        tryTransit(destination);
       } else if (player.x === portals[1].x && player.y === portals[1].y) {
         const destination = portals[0];
-        if (!getPlayerAt(destination.x, destination.y)) {
-          player.x = destination.x;
-          player.y = destination.y;
-        }
+        tryTransit(destination);
       }
     }
 
@@ -1909,10 +2313,7 @@
       while (inBounds(nx, ny)) {
         const hit = getPlayerAt(nx, ny);
         if (hit && hit.team !== player.team) {
-          if (!applyShieldLogic(player, hit)) {
-            hit.hp = 0;
-            createEffect("kill", hit.x, hit.y, teamColor(player.team), "⚔");
-          }
+          applyCombatDamage(player, hit, MINOTO_DASH_DAMAGE, "⚔");
         }
         if (!isWallAt(nx, ny)) {
           lastX = nx;
@@ -1972,10 +2373,7 @@
         infoText.textContent = `Hunter sadece çapraz hatta ve en fazla ${range} kare menzilde vurabilir.`;
         return false;
       }
-      if (!applyShieldLogic(player, enemy)) {
-        enemy.hp = 0;
-        createEffect("kill", enemy.x, enemy.y, teamColor(player.team), "🎯");
-      }
+      applyCombatDamage(player, enemy, HUNTER_SHOT_DAMAGE, "🎯");
       return true;
     }
 
@@ -2031,12 +2429,11 @@
       player.x = x;
       player.y = y;
       if (occ && occ.team !== player.team) {
-        if (applyShieldLogic(player, occ)) {
+        const beforeHp = occ.hp;
+        applyCombatDamage(player, occ, FROG_STOMP_DAMAGE, "🐸");
+        if (beforeHp === occ.hp) {
           player.x = originX;
           player.y = originY;
-        } else {
-          occ.hp = 0;
-          createEffect("kill", occ.x, occ.y, teamColor(player.team), "🐸");
         }
       }
       createEffect("portal", player.x, player.y, "#84cc16", "🐸");
@@ -2083,7 +2480,7 @@
       createEffect("portal", x, y, "#a855f7", "🎲");
 
       if (!sameLineAndClear(player, enemy)) {
-        infoText.textContent = `Tahmin kuruldu: (${x + 1},${y + 1}) | Kalan: 2 tur. Düz görüş yok, anlık hasar vurulamadı.`;
+        infoText.textContent = "Tahmin kuruldu. Kalan: 2 tur. Düz görüş yok, anlık hasar vurulamadı.";
         return true;
       }
 
@@ -2095,7 +2492,7 @@
           createEffect("trap", enemy.x, enemy.y, "#fb7185", "💥");
         }
       }
-      infoText.textContent = `Tahmin kuruldu: (${x + 1},${y + 1}) | Kalan: 2 tur. Anında 3 hasar vuruldu.`;
+      infoText.textContent = "Tahmin kuruldu. Kalan: 2 tur. Anında 3 hasar vuruldu.";
       return true;
     }
 
@@ -2135,7 +2532,32 @@
       }
     }
 
+    function visibleSecretOwnerTeam() {
+      return onlineState.enabled ? onlineState.localTeam : game.turn;
+    }
+
+    function drawCastleObstacle(obstacle) {
+      const auraX = (obstacle.x - 1) * TILE;
+      const auraY = (obstacle.y - 1) * TILE;
+      ctx.fillStyle = obstacle.ownerTeam === 1 ? "rgba(37,99,235,0.12)" : "rgba(220,38,38,0.12)";
+      ctx.fillRect(auraX, auraY, TILE * 3, TILE * 3);
+
+      ctx.fillStyle = obstacle.ownerTeam === 1 ? "#60a5fa" : "#f87171";
+      ctx.fillRect(obstacle.x * TILE + 7, obstacle.y * TILE + 7, TILE - 14, TILE - 14);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = `bold ${Math.max(10, Math.round(TILE * 0.18))}px sans-serif`;
+      ctx.fillText("🏰", obstacle.x * TILE + TILE / 2, obstacle.y * TILE + TILE / 2 - TILE * 0.05);
+
+      ctx.font = `bold ${Math.max(8, Math.round(TILE * 0.12))}px sans-serif`;
+      const shownTurns = Math.max(1, obstacle.turnsLeft - 1);
+      ctx.fillText(String(shownTurns), obstacle.x * TILE + TILE / 2, obstacle.y * TILE + TILE * 0.2);
+    }
+
     function drawObstacles() {
+      const visibleTeam = visibleSecretOwnerTeam();
       for (const obstacle of game.obstacles) {
         if (obstacle.type === "wall") {
           ctx.fillStyle = "#64748b";
@@ -2143,23 +2565,13 @@
           continue;
         }
         if (obstacle.type === "castle") {
-          const auraX = (obstacle.x - 1) * TILE;
-          const auraY = (obstacle.y - 1) * TILE;
-          ctx.fillStyle = obstacle.ownerTeam === 1 ? "rgba(37,99,235,0.12)" : "rgba(220,38,38,0.12)";
-          ctx.fillRect(auraX, auraY, TILE * 3, TILE * 3);
-
-          ctx.fillStyle = obstacle.ownerTeam === 1 ? "#60a5fa" : "#f87171";
-          ctx.fillRect(obstacle.x * TILE + 7, obstacle.y * TILE + 7, TILE - 14, TILE - 14);
-
-          ctx.fillStyle = "#ffffff";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.font = `bold ${Math.max(10, Math.round(TILE * 0.18))}px sans-serif`;
-          ctx.fillText("🏰", obstacle.x * TILE + TILE / 2, obstacle.y * TILE + TILE / 2 - TILE * 0.05);
-
-          ctx.font = `bold ${Math.max(8, Math.round(TILE * 0.12))}px sans-serif`;
-          const shownTurns = Math.max(1, obstacle.turnsLeft - 1);
-          ctx.fillText(String(shownTurns), obstacle.x * TILE + TILE / 2, obstacle.y * TILE + TILE * 0.2);
+          if (obstacle.ownerTeam !== visibleTeam) {
+            continue;
+          }
+          drawCastleObstacle(obstacle);
+          continue;
+        }
+        if (obstacle.type === "deadlyTrap" && obstacle.ownerTeam !== visibleTeam) {
           continue;
         }
         ctx.fillStyle = obstacle.type === "deadlyTrap" ? "rgba(239,68,68,0.3)" : "rgba(249,115,22,0.32)";
@@ -2170,7 +2582,11 @@
     }
 
     function drawPortals() {
+      const visibleTeam = onlineState.enabled ? onlineState.localTeam : game.turn;
       for (const team of [1, 2]) {
+        if (team !== visibleTeam) {
+          continue;
+        }
         const portals = game.portals[team];
         for (const portal of portals) {
           const cx = portal.x * TILE + TILE / 2;
@@ -2191,7 +2607,11 @@
     }
 
     function drawPredictions() {
+      const visibleTeam = onlineState.enabled ? onlineState.localTeam : game.turn;
       for (const prediction of game.predictions) {
+        if (prediction.ownerTeam !== visibleTeam) {
+          continue;
+        }
         const cx = prediction.x * TILE + TILE / 2;
         const cy = prediction.y * TILE + TILE / 2;
         const ownerColor = teamLightColor(prediction.ownerTeam);
@@ -2341,11 +2761,11 @@
     function handleInGameKey(e, key) {
       if (key === " " || key === "spacebar") {
         e.preventDefault();
-        armAbility();
+        dispatchLocalAction({ type: "ability" });
         return;
       }
       if (key === "t") {
-        skipTurn();
+        dispatchLocalAction({ type: "skip" });
         return;
       }
       if (key === "p") {
@@ -2571,6 +2991,9 @@
     }
 
     function returnToStartMenu() {
+      closeOnlineConnection();
+      onlineState.enabled = false;
+      setNetworkStatus("Online ayarlar hazır.");
       game = newGameState();
       game.started = false;
       game.paused = false;
@@ -2605,21 +3028,6 @@
       player.y = y;
       playSound("move");
 
-      const usedSpeed = player.powers.speed && Math.max(Math.abs(x - originX), Math.abs(y - originY)) > 1;
-      const usedDiagonal = player.powers.diagonal && x !== originX && y !== originY;
-      const usedJump = player.powers.jump && lineIntersectsWall(originX, originY, x, y);
-
-      if (usedSpeed) {
-        player.powers.speed = false;
-      }
-      if (usedDiagonal) {
-        player.powers.diagonal = false;
-        player.diagonalExpiresAtTurn = 0;
-      }
-      if (usedJump) {
-        player.powers.jump = false;
-      }
-
       applyPortalTransit(player);
 
       checkMapTrapDamage(player);
@@ -2639,9 +3047,14 @@
           player.y = originY;
           return true;
         }
-        enemy.hp = 0;
-        createEffect("kill", enemy.x, enemy.y, teamColor(player.team));
-        playSound("kill");
+        enemy.hp = Math.max(0, enemy.hp - CONTACT_DAMAGE);
+        infoText.textContent = `${player.name} rakibe temas etti! -${CONTACT_DAMAGE} can`;
+        if (enemy.hp === 0) {
+          createEffect("kill", enemy.x, enemy.y, teamColor(player.team), "⚔");
+          playSound("kill");
+        } else {
+          createEffect("trap", enemy.x, enemy.y, teamColor(player.team), "⚔");
+        }
       }
 
       startPowerupCaptureIfAny(player);
@@ -2729,13 +3142,13 @@
       const scaleY = canvas.height / rect.height;
       const x = Math.floor(((e.clientX - rect.left) * scaleX) / TILE);
       const y = Math.floor(((e.clientY - rect.top) * scaleY) / TILE);
-      handleBoardAction(x, y);
+      dispatchLocalAction({ type: "board", x, y });
     });
 
     startBtn.addEventListener("click", () => {
       ensureAudioContext();
       playSound("button");
-      restart();
+      startConfiguredGame();
     });
     pauseBtn.addEventListener("click", () => {
       ensureAudioContext();
@@ -2750,12 +3163,12 @@
     abilityBtn.addEventListener("click", () => {
       ensureAudioContext();
       playSound("button");
-      armAbility();
+      dispatchLocalAction({ type: "ability" });
     });
     skipTurnBtn.addEventListener("click", () => {
       ensureAudioContext();
       playSound("button");
-      skipTurn();
+      dispatchLocalAction({ type: "skip" });
     });
     soundBtn.addEventListener("click", () => {
       ensureAudioContext();
@@ -2787,6 +3200,12 @@
     });
     p1CharacterSelect.addEventListener("change", updateCharacterTips);
     p2CharacterSelect.addEventListener("change", updateCharacterTips);
+    gameModeSelect.addEventListener("change", updateOnlineConfigVisibility);
+    onlineRoleSelect.addEventListener("change", () => {
+      if (onlineRoleSelect.value === "host" && !roomCodeInput.value.trim()) {
+        roomCodeInput.value = sanitizeRoomCode(`CANCAN${Math.floor(Math.random() * 900 + 100)}`);
+      }
+    });
 
     document.addEventListener("keydown", e => {
       if (e.repeat) {
@@ -2820,6 +3239,10 @@
 
     updatePowerupLegend();
     updateCharacterTips();
+    const savedWsUrl = normalizeServerUrl(localStorage.getItem("cancan_ws_url"));
+    serverUrlInput.value = savedWsUrl || detectDefaultWsUrl();
+    updateOnlineConfigVisibility();
+    setNetworkStatus("Online ayarlar hazır.");
     observeInfoTextForLog();
     resetCombatLog();
     setHelpVisible(false);
