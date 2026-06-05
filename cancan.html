@@ -41,6 +41,14 @@
       align-items: center;
       justify-content: flex-start;
       padding: 16px 16px 8px;
+      min-height: 100dvh;
+      overflow-x: hidden;
+      overscroll-behavior: none;
+    }
+
+    body.overlay-open {
+      overflow: hidden;
+      touch-action: none;
     }
 
     .win-counter {
@@ -137,6 +145,8 @@
       backdrop-filter: blur(16px);
       z-index: 20;
       padding: 24px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
     }
 
     .menu-overlay.hidden {
@@ -145,6 +155,8 @@
 
     .menu-card {
       width: min(540px, 100%);
+      max-height: min(92dvh, 760px);
+      overflow-y: auto;
       border-radius: 24px;
       border: 1px solid rgba(255,255,255,0.16);
       background: linear-gradient(180deg, rgba(15,23,42,0.94), rgba(30,41,59,0.92));
@@ -538,6 +550,16 @@
 
     @media (max-width: 860px) {
       .game-shell { grid-template-columns: 1fr; }
+
+      .menu-overlay {
+        place-items: start center;
+        padding: 10px;
+      }
+
+      .menu-card {
+        max-height: 96dvh;
+        padding: 18px;
+      }
     }
 
     .seo-content {
@@ -1099,7 +1121,7 @@
       game = newGameState();
       game.started = false;
       game.paused = false;
-      menuOverlay.classList.add("hidden");
+      setMenuVisible(false);
       setHelpVisible(false);
       pauseBtn.textContent = "Duraklat";
       lastLoggedInfo = "";
@@ -1408,9 +1430,21 @@
       smartTip.textContent = "Tehlike katmanını açıp rakibin erişebileceği kareleri kontrol et.";
     }
 
+    function syncBodyOverlayLock() {
+      const menuVisible = !menuOverlay.classList.contains("hidden");
+      const helpVisible = helpOverlay.classList.contains("visible");
+      document.body.classList.toggle("overlay-open", menuVisible || helpVisible);
+    }
+
+    function setMenuVisible(visible) {
+      menuOverlay.classList.toggle("hidden", !visible);
+      syncBodyOverlayLock();
+    }
+
     function setHelpVisible(visible) {
       helpOverlay.classList.toggle("visible", visible);
       helpOverlay.setAttribute("aria-hidden", visible ? "false" : "true");
+      syncBodyOverlayLock();
     }
 
     function buildSpawnPositions() {
@@ -3016,7 +3050,7 @@
       game = newGameState();
       game.started = true;
       game.paused = false;
-      menuOverlay.classList.add("hidden");
+      setMenuVisible(false);
       setHelpVisible(false);
       pauseBtn.textContent = "Duraklat";
       lastLoggedInfo = "";
@@ -3032,7 +3066,7 @@
       game = newGameState();
       game.started = false;
       game.paused = false;
-      menuOverlay.classList.remove("hidden");
+      setMenuVisible(true);
       setHelpVisible(false);
       pauseBtn.textContent = "Duraklat";
       lastLoggedInfo = "";
