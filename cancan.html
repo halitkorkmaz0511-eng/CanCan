@@ -832,6 +832,7 @@
     const POWERUP_WARNING_TURNS = 1;
     const POWERUP_MIN_PLAYER_DIST = 3;
     const MAP_POWER_ACTIVE_TURNS = 4;
+    const MAX_SIMULTANEOUS_MAP_POWERS = 2;
     const CASTLE_AURA_DAMAGE = 2;
     const CONTACT_DAMAGE = MAX_HP;
     const PORTAL_BLOCK_DAMAGE = 1;
@@ -1887,6 +1888,7 @@
             diagonalExpiresAtTurn: 0,
             mapPowerTurnsLeft: 0,
             mapPowerLockTurns: 0,
+            mapPowerQueue: [],
             powers: { speed: false, diagonal: false, jump: false, shield: false }
           },
           {
@@ -1911,6 +1913,7 @@
             diagonalExpiresAtTurn: 0,
             mapPowerTurnsLeft: 0,
             mapPowerLockTurns: 0,
+            mapPowerQueue: [],
             powers: { speed: false, diagonal: false, jump: false, shield: false }
           }
         ],
@@ -2084,14 +2087,37 @@
         return;
       }
 
-      // Single-slot system: only one map power can be active at the same time.
-      for (const powerType of MAP_POWER_TYPES) {
-        player.powers[powerType] = false;
+      if (picked.type === "jump") {
+        player.powers.jump = true;
+        player.mapPowerLockTurns = 0;
+        infoText.textContent = `${player.name} ${POWERUP_META[picked.type].label} gücünü aldı!`;
+        createEffect("powerup", player.x, player.y, POWERUP_META[picked.type].color);
+        playSound("powerup");
+        return;
       }
-      player.diagonalExpiresAtTurn = 0;
-      player.mapPowerLockTurns = 0;
+
+      if (!TIMED_MAP_POWER_TYPES.includes(picked.type)) {
+        return;
+      }
+
+      if (!Array.isArray(player.mapPowerQueue)) {
+        player.mapPowerQueue = [];
+      }
+
+      const existingIndex = player.mapPowerQueue.indexOf(picked.type);
+      if (existingIndex !== -1) {
+        player.mapPowerQueue.splice(existingIndex, 1);
+      } else if (player.mapPowerQueue.length >= MAX_SIMULTANEOUS_MAP_POWERS) {
+        const removedType = player.mapPowerQueue.shift();
+        if (removedType) {
+          player.powers[removedType] = false;
+        }
+      }
+
+      player.mapPowerQueue.push(picked.type);
       player.powers[picked.type] = true;
-      player.mapPowerTurnsLeft = TIMED_MAP_POWER_TYPES.includes(picked.type) ? MAP_POWER_ACTIVE_TURNS : 0;
+      player.mapPowerLockTurns = 0;
+      player.mapPowerTurnsLeft = MAP_POWER_ACTIVE_TURNS;
       infoText.textContent = `${player.name} ${POWERUP_META[picked.type].label} gücünü aldı!`;
       createEffect("powerup", player.x, player.y, POWERUP_META[picked.type].color);
       playSound("powerup");
@@ -2113,6 +2139,7 @@
           for (const powerType of TIMED_MAP_POWER_TYPES) {
             player.powers[powerType] = false;
           }
+          player.mapPowerQueue = [];
           player.diagonalExpiresAtTurn = 0;
           player.mapPowerTurnsLeft = 0;
           player.mapPowerLockTurns = 0;
@@ -2125,6 +2152,7 @@
         player.mapPowerTurnsLeft = 0;
         player.mapPowerLockTurns = 0;
       }
+      player.mapPowerQueue = [];
     }
 
     function resolvePendingPowerupForPlayer(player) {
@@ -2159,10 +2187,6 @@
         return;
       }
 
-      if (hasUnconsumedMapPower(player)) {
-        infoText.textContent = `${player.name} mevcut harita gücü aktif. Süresi bitince yeni güç alabilir.`;
-        return;
-      }
       if (player.mapPowerLockTurns > 0) {
         infoText.textContent = `${player.name} ${player.mapPowerLockTurns} tur sonra yeni harita gücü alabilir.`;
         return;
@@ -2638,6 +2662,10 @@
 
     function useGamblerAbility(player, x, y) {
       const enemy = enemyPlayer();
+      if (!enemy) {
+        infoText.textContent = "Hedef bulunamadı.";
+        return false;
+      }
       if (!inBounds(x, y)) {
         infoText.textContent = "Kumarbaz tahmini için geçerli kare seç.";
         return false;
@@ -2654,11 +2682,6 @@
         createEffect("portal", x, y, "#a855f7", "🎲");
       }
 
-      if (!sameLineAndClear(player, enemy)) {
-        infoText.textContent = `Tahmin kuruldu. Kalan: ${GAMBLER_PREDICTION_TURNS} tur. Düz görüş yok, anlık hasar vurulamadı.`;
-        return true;
-      }
-
       if (!applyShieldLogic(player, enemy)) {
         enemy.hp = Math.max(0, enemy.hp - 3);
         if (enemy.hp === 0) {
@@ -2666,8 +2689,11 @@
         } else {
           createEffect("trap", enemy.x, enemy.y, "#fb7185", "💥");
         }
+        infoText.textContent = `Tahmin kuruldu. Kalan: ${GAMBLER_PREDICTION_TURNS} tur. Anında 3 hasar vuruldu.`;
+        return true;
       }
-      infoText.textContent = `Tahmin kuruldu. Kalan: ${GAMBLER_PREDICTION_TURNS} tur. Anında 3 hasar vuruldu.`;
+
+      infoText.textContent = `Tahmin kuruldu. Kalan: ${GAMBLER_PREDICTION_TURNS} tur. Kalkan hasarı engelledi.`;
       return true;
     }
 
