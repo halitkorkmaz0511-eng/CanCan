@@ -1,0 +1,3877 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="CanCan 2D, tarayıcıda oynanan ücretsiz çevrimiçi 2D strateji oyunu. Oda kur, arkadaşına davet linki gönder, 10x10 haritada taktik kur ve rakibini yen." />
+  <meta name="keywords" content="CanCan 2D, strateji oyunu, online strateji oyunu, tarayıcı oyunu, ücretsiz oyun, 2D oyun, sıra tabanlı oyun" />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#302b63" />
+  <link rel="canonical" href="https://cancan-ten.vercel.app/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="CanCan 2D" />
+  <meta property="og:title" content="CanCan 2D - Ücretsiz Çevrimiçi Strateji Oyunu" />
+  <meta property="og:description" content="Arkadaşınla online oda kur, güçleri topla, engelleri aş ve 10x10 haritada rakibini alt et." />
+  <meta property="og:url" content="https://cancan-ten.vercel.app/" />
+  <meta property="og:image" content="https://cancan-ten.vercel.app/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:locale" content="tr_TR" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="CanCan 2D - Ücretsiz Çevrimiçi Strateji Oyunu" />
+  <meta name="twitter:description" content="Tarayıcıdan ücretsiz oyna, oda linkini paylaş ve arkadaşınla strateji mücadelesine gir." />
+  <meta name="twitter:image" content="https://cancan-ten.vercel.app/og-image.png" />
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "VideoGame",
+      "name": "CanCan 2D",
+      "description": "Tarayıcıda oynanan ücretsiz çevrimiçi 2D strateji oyunu.",
+      "url": "https://cancan-ten.vercel.app/",
+      "image": "https://cancan-ten.vercel.app/og-image.png",
+      "applicationCategory": "Game",
+      "operatingSystem": "Web",
+      "gamePlatform": "Web browser",
+      "genre": "Strategy",
+      "inLanguage": "tr"
+    }
+  </script>
+  <title>CanCan 2D - Ücretsiz Çevrimiçi Strateji Oyunu</title>
+  <style>
+    :root {
+      --bg-from: #964848;
+      --bg-mid:  #302b63;
+      --bg-to:   #24243e;
+      --surface: rgba(255,255,255,0.06);
+      --surface-border: rgba(255,255,255,0.12);
+      --ink: #f1f5f9;
+      --ink-muted: #94a3b8;
+      --blue: #3b82f6;
+      --blue-glow: rgba(59,130,246,0.35);
+      --red: #ef4444;
+      --red-glow: rgba(239,68,68,0.35);
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --tile-light: #1e293b;
+      --tile-dark:  #0f172a;
+      --radius-lg: 20px;
+      --radius-md: 12px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Inter", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: linear-gradient(135deg, var(--bg-from), var(--bg-mid), var(--bg-to));
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 16px 16px 8px;
+      min-height: 100dvh;
+      overflow-x: hidden;
+      overscroll-behavior: none;
+    }
+
+    body.overlay-open {
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    .win-counter {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 30;
+      border: 1px solid var(--surface-border);
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.86);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      padding: 8px 10px;
+      min-width: 130px;
+    }
+
+    .win-counter-title {
+      font-size: 0.68rem;
+      font-weight: 800;
+      color: #cbd5e1;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .win-counter-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: #e2e8f0;
+      margin-top: 2px;
+      gap: 12px;
+    }
+
+    .win-counter-row.blue { color: #93c5fd; }
+    .win-counter-row.red { color: #fca5a5; }
+
+    .game-shell {
+      width: min(1040px, 100%);
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      align-items: start;
+      gap: 20px;
+      animation: rise 500ms ease both;
+    }
+
+    .board-wrap,
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    }
+
+    .board-wrap {
+      padding: 18px;
+    }
+
+    .panel {
+      padding: 22px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .game-title {
+      font-size: 1.1rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+      margin-bottom: 12px;
+    }
+
+    #gameCanvas {
+      width: 100%;
+      height: auto;
+      border-radius: var(--radius-md);
+      display: block;
+      border: 1px solid var(--surface-border);
+      touch-action: manipulation;
+    }
+
+    .menu-overlay {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(2, 6, 23, 0.72);
+      backdrop-filter: blur(16px);
+      z-index: 20;
+      padding: 24px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .menu-overlay.hidden {
+      display: none;
+    }
+
+    .menu-card {
+      width: min(540px, 100%);
+      max-height: min(92dvh, 760px);
+      overflow-y: auto;
+      border-radius: 24px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: linear-gradient(180deg, rgba(15,23,42,0.94), rgba(30,41,59,0.92));
+      box-shadow: 0 30px 90px rgba(0,0,0,0.55);
+      padding: 28px;
+      text-align: center;
+      animation: rise 420ms ease both;
+    }
+
+    .menu-kicker {
+      font-size: 0.78rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 10px;
+    }
+
+    .menu-title {
+      font-size: clamp(2rem, 5vw, 3.4rem);
+      font-weight: 900;
+      line-height: 1;
+      margin-bottom: 12px;
+      background: linear-gradient(90deg, #60a5fa, #a78bfa, #f472b6);
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+
+    .menu-subtitle {
+      color: #cbd5e1;
+      line-height: 1.6;
+      margin-bottom: 18px;
+    }
+
+    .menu-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .menu-picks {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+      text-align: left;
+    }
+
+    .menu-pick label {
+      display: block;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .menu-pick select {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(15,23,42,0.8);
+      color: #f1f5f9;
+      padding: 10px;
+      font-size: 0.92rem;
+    }
+
+    .online-config.hidden {
+      display: none;
+    }
+
+    .network-status {
+      margin-top: 8px;
+      font-size: 0.76rem;
+      color: #93c5fd;
+      min-height: 1.2em;
+    }
+
+    .online-share-row {
+      margin-top: 8px;
+    }
+
+    .online-share-row button {
+      width: 100%;
+    }
+
+    .button-secondary {
+      background: linear-gradient(135deg, #1e293b, #334155);
+      color: #e2e8f0;
+      box-shadow: 0 4px 16px rgba(15,23,42,0.28);
+    }
+
+    .button-secondary:hover {
+      box-shadow: 0 8px 24px rgba(15,23,42,0.38);
+    }
+
+    /* --- panel içi --- */
+    .panel-title {
+      font-size: 1.5rem;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      margin-bottom: 18px;
+      background: linear-gradient(90deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .turn-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .turn-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 14px;
+      border-radius: 999px;
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.82rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      box-shadow: 0 0 14px var(--badge-glow, transparent);
+      transition: box-shadow 300ms;
+    }
+
+    .p1 { background: var(--blue);  --badge-glow: var(--blue-glow); }
+    .p2 { background: var(--red);   --badge-glow: var(--red-glow); }
+
+    #infoText {
+      font-size: 0.9rem;
+      color: var(--ink);
+      min-height: 2.4em;
+      line-height: 1.5;
+      margin-bottom: 10px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.04);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--surface-border);
+    }
+
+    .match-summary {
+      display: grid;
+      gap: 8px;
+      margin: 0 0 14px;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: var(--radius-md);
+      background: rgba(15, 23, 42, 0.62);
+    }
+
+    .match-summary.hidden {
+      display: none;
+    }
+
+    .match-summary-title {
+      font-size: 0.78rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #93c5fd;
+    }
+
+    .match-summary-body {
+      color: #f8fafc;
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .match-summary-meta {
+      color: #94a3b8;
+      font-size: 0.76rem;
+      line-height: 1.35;
+    }
+
+    .local-stats {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 6px;
+      margin: 0 0 14px;
+      padding: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--radius-md);
+      background: rgba(255,255,255,0.035);
+    }
+
+    .local-stat {
+      min-width: 0;
+      text-align: center;
+    }
+
+    .local-stat strong {
+      display: block;
+      color: #f8fafc;
+      font-size: 0.92rem;
+    }
+
+    .local-stat span {
+      display: block;
+      color: #94a3b8;
+      font-size: 0.62rem;
+      line-height: 1.2;
+    }
+
+    .stat-block {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .stat-card {
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--surface-border);
+      background: rgba(255,255,255,0.04);
+    }
+
+    .stat-card.blue-card { border-color: rgba(59,130,246,0.4); }
+    .stat-card.red-card  { border-color: rgba(239,68,68,0.4); }
+
+    .stat-name {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .stat-card.blue-card .stat-name { color: #60a5fa; }
+    .stat-card.red-card  .stat-name { color: #f87171; }
+
+    .stat-hp {
+      font-size: 1.25rem;
+      font-weight: 900;
+    }
+
+    .stat-hp-bar {
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 99px;
+      margin: 4px 0 6px;
+      overflow: hidden;
+    }
+
+    .stat-hp-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 300ms ease;
+    }
+
+    .blue-card .stat-hp-fill { background: var(--blue); }
+    .red-card  .stat-hp-fill { background: var(--red); }
+
+    .stat-powers {
+      font-size: 0.78rem;
+      color: var(--ink-muted);
+    }
+
+    .power-pip {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: rgba(245,158,11,0.2);
+      color: var(--amber);
+      font-weight: 700;
+      font-size: 0.72rem;
+      margin-right: 3px;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--surface-border);
+      margin: 14px 0;
+    }
+
+    .btns {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    button {
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 10px 18px;
+      background: linear-gradient(135deg, #93c5fd, #c4b5fd);
+      color: #0f172a;
+      font-weight: 800;
+      font-size: 0.85rem;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(59,130,246,0.3);
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(59,130,246,0.45);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+      transform: none;
+      box-shadow: none;
+    }
+
+    button:disabled:hover {
+      transform: none;
+      box-shadow: none;
+    }
+
+    .hint {
+      font-size: 0.78rem;
+      color: var(--ink-muted);
+      line-height: 1.65;
+    }
+
+    .hint strong {
+      color: var(--amber);
+      font-weight: 700;
+    }
+
+    .char-tip {
+      margin-top: 8px;
+      font-size: 0.75rem;
+      color: #cbd5e1;
+      line-height: 1.5;
+      padding: 8px 10px;
+      border: 1px solid var(--surface-border);
+      border-radius: 10px;
+      background: rgba(15,23,42,0.65);
+    }
+
+    .combat-log {
+      margin-top: 12px;
+      border: 1px solid var(--surface-border);
+      border-radius: 10px;
+      background: rgba(15,23,42,0.65);
+      padding: 10px;
+    }
+
+    .combat-log-title {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 8px;
+      font-weight: 800;
+    }
+
+    .combat-log-list {
+      list-style: none;
+      max-height: 120px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .combat-log-list li {
+      font-size: 0.76rem;
+      color: #e2e8f0;
+      line-height: 1.4;
+      border-left: 2px solid rgba(148,163,184,0.45);
+      padding-left: 7px;
+    }
+
+    .combat-log-list li.log-combat {
+      border-left-color: rgba(248,113,113,0.9);
+      color: #fecaca;
+    }
+
+    .combat-log-list li.log-buff {
+      border-left-color: rgba(74,222,128,0.9);
+      color: #bbf7d0;
+    }
+
+    .combat-log-list li.log-control {
+      border-left-color: rgba(192,132,252,0.9);
+      color: #e9d5ff;
+    }
+
+    .combat-log-list li.log-system {
+      border-left-color: rgba(148,163,184,0.9);
+      color: #cbd5e1;
+    }
+
+    .smart-tip {
+      margin-top: 8px;
+      font-size: 0.75rem;
+      line-height: 1.45;
+      padding: 8px 10px;
+      border: 1px solid var(--surface-border);
+      border-radius: 10px;
+      background: rgba(15,23,42,0.65);
+      color: #e2e8f0;
+    }
+
+    .help-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      background: rgba(2, 6, 23, 0.72);
+      z-index: 25;
+      padding: 20px;
+    }
+
+    .help-overlay.visible {
+      display: grid;
+    }
+
+    .help-card {
+      width: min(520px, 100%);
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(15,23,42,0.94);
+      box-shadow: 0 22px 80px rgba(0,0,0,0.5);
+      padding: 18px 18px 14px;
+    }
+
+    .help-title {
+      font-size: 1rem;
+      font-weight: 900;
+      margin-bottom: 10px;
+      letter-spacing: 0.05em;
+    }
+
+    .help-list {
+      list-style: none;
+      display: grid;
+      gap: 8px;
+      color: #cbd5e1;
+      font-size: 0.87rem;
+      line-height: 1.45;
+      margin-bottom: 12px;
+    }
+
+    .kbd {
+      display: inline-block;
+      min-width: 22px;
+      padding: 1px 6px;
+      border-radius: 6px;
+      background: #0f172a;
+      border: 1px solid rgba(148,163,184,0.45);
+      color: #f8fafc;
+      font-weight: 700;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+
+    @keyframes rise {
+      from { transform: translateY(12px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    @media (max-width: 860px) {
+      .game-shell { grid-template-columns: 1fr; }
+
+      .menu-overlay {
+        place-items: start center;
+        padding: 10px;
+      }
+
+      .menu-card {
+        max-height: 96dvh;
+        padding: 18px;
+      }
+    }
+
+    .seo-content {
+      width: 100%;
+      margin-top: 14px;
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-md);
+      background: rgba(255,255,255,0.03);
+      box-shadow: none;
+      padding: 14px;
+      color: var(--ink);
+    }
+
+    .seo-content h2 {
+      font-size: 1.15rem;
+      margin-bottom: 8px;
+    }
+
+    .seo-content p {
+      color: #cbd5e1;
+      line-height: 1.6;
+      margin-bottom: 10px;
+      font-size: 0.95rem;
+    }
+
+    .seo-content ul {
+      margin-left: 18px;
+      color: #cbd5e1;
+      line-height: 1.6;
+      font-size: 0.92rem;
+    }
+  </style>
+</head>
+<body>
+  <div id="winCounter" class="win-counter" aria-label="Kazanan sayacı">
+    <div class="win-counter-title">Kazanan Sayacı</div>
+    <div class="win-counter-row blue"><span>Mavi</span><strong id="p1Wins">0</strong></div>
+    <div class="win-counter-row red"><span>Kırmızı</span><strong id="p2Wins">0</strong></div>
+  </div>
+
+  <div class="game-shell">
+    <section class="board-wrap">
+      <div class="game-title">Cancan &mdash; 2D Strateji</div>
+      <canvas id="gameCanvas" width="640" height="640"></canvas>
+
+      <section class="seo-content" aria-label="CanCan oyunu hakkında">
+        <h2>CanCan 2D Strateji Oyunu</h2>
+        <p>
+          CanCan, tarayıcıda oynanan ücretsiz bir 2D strateji oyunudur. Farklı harita boyutlarında
+          Mavi ve Kırmızı oyuncular sırayla hareket eder. Amaç, rakibin bulunduğu kareye ulaşarak oyunu kazanmaktır.
+        </p>
+        <h2>Nasıl Oynanır?</h2>
+        <ul>
+          <li>Yeşil işaretli kareler o turda gidebileceğin geçerli hamlelerdir.</li>
+          <li>Güç ikonlarını toplayarak hız, çapraz hareket, atlama, kalkan ve iyileşme avantajı elde edebilirsin.</li>
+          <li>Tuzaklar can azaltır; duvarlar yolu kapatır.</li>
+          <li>Rakibin karesine adım attığında rakibini elersin.</li>
+        </ul>
+      </section>
+    </section>
+
+    <aside class="panel">
+      <div class="panel-title">Cancan</div>
+
+      <div class="turn-row">
+        <span class="turn-label">Sıra:</span>
+        <span id="turnBadge" class="badge p1">Mavi</span>
+      </div>
+
+      <div id="infoText">Oyununu seç ve yeşil karelere hareket et.</div>
+
+      <div id="matchSummary" class="match-summary hidden" aria-live="polite">
+        <div class="match-summary-title">Maç Sonucu</div>
+        <div id="matchSummaryBody" class="match-summary-body"></div>
+        <div id="matchSummaryMeta" class="match-summary-meta"></div>
+      </div>
+
+      <div class="local-stats" aria-label="Bu cihazdaki oyun istatistikleri">
+        <div class="local-stat"><strong id="visitCount">0</strong><span>Ziyaret</span></div>
+        <div class="local-stat"><strong id="startCount">0</strong><span>Başlama</span></div>
+        <div class="local-stat"><strong id="botStartCount">0</strong><span>Bot</span></div>
+        <div class="local-stat"><strong id="onlineStartCount">0</strong><span>Online</span></div>
+        <div class="local-stat"><strong id="finishCount">0</strong><span>Bitiş</span></div>
+        <div class="local-stat"><strong id="shareCount">0</strong><span>Paylaşım</span></div>
+      </div>
+
+      <div class="combat-log">
+        <div class="combat-log-title">Son Olaylar</div>
+        <ul id="combatLog" class="combat-log-list">
+          <li>Oyun başladıktan sonra olaylar burada listelenir.</li>
+        </ul>
+      </div>
+
+      <div class="stat-block" id="statBlock">
+        <div class="stat-card blue-card">
+          <div class="stat-name">Mavi</div>
+          <div class="stat-hp" id="p1hp">6</div>
+          <div class="stat-hp-bar"><div class="stat-hp-fill" id="p1bar" style="width:100%"></div></div>
+          <div class="stat-powers" id="p1powers">Güç yok</div>
+        </div>
+        <div class="stat-card red-card">
+          <div class="stat-name">Kırmızı</div>
+          <div class="stat-hp" id="p2hp">6</div>
+          <div class="stat-hp-bar"><div class="stat-hp-fill" id="p2bar" style="width:100%"></div></div>
+          <div class="stat-powers" id="p2powers">Güç yok</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="btns">
+        <button id="abilityBtn">Yetenek Kullan</button>
+        <button id="skipTurnBtn" class="button-secondary">Turu Geç</button>
+        <button id="dangerBtn" class="button-secondary">Tehlike: Kapalı</button>
+        <button id="coordsBtn" class="button-secondary">Koordinat: Açık</button>
+        <button id="colorblindBtn" class="button-secondary">Renk Körü: Kapalı</button>
+        <button id="soundBtn" class="button-secondary">Ses: Açık</button>
+        <button id="pauseBtn" class="button-secondary">Duraklat</button>
+        <button id="helpBtn" class="button-secondary">Yardım</button>
+        <button id="copyStatsBtn" class="button-secondary">İstatistik Kopyala</button>
+        <button id="shareResultBtn" class="button-secondary" disabled>Sonucu Paylaş</button>
+        <button id="resetBtn">Yeniden Başlat</button>
+      </div>
+
+      <div id="charTip" class="char-tip">Karakter detayları burada görünür.</div>
+      <div id="smartTip" class="smart-tip">Akıllı ipucu burada görünür.</div>
+    </aside>
+  </div>
+
+  <div class="menu-overlay" id="menuOverlay">
+    <div class="menu-card">
+      <div class="menu-kicker">Yeni 2D Strateji Oyunu</div>
+      <div class="menu-title">Cancan</div>
+      <div class="menu-subtitle">
+        Haritayı ve karakterleri seç, sonra savaşa başla.<br>
+        Güçleri topla, tuzaklardan kaç ve rakibinin karesine basarak kazan.
+      </div>
+      <div class="menu-picks">
+        <div class="menu-pick">
+          <label for="gameMode">Oyun Modu</label>
+          <select id="gameMode">
+            <option value="bot">Bot'a Karşı</option>
+            <option value="local">Yerel (Aynı Cihaz)</option>
+            <option value="online">Online (Hazırlık)</option>
+          </select>
+        </div>
+        <div class="menu-pick">
+          <label for="mapSelect">Harita Seçimi</label>
+          <select id="mapSelect">
+            <option value="classic">Klasik (10x10)</option>
+            <option value="wide">Geniş Alan (12x12)</option>
+            <option value="maze">Labirent (14x14)</option>
+            <option value="epic">Büyük Savaş (16x16)</option>
+          </select>
+        </div>
+        <div class="menu-pick">
+          <label for="spawnSelect">Başlangıç Konumu</label>
+          <select id="spawnSelect">
+            <option value="fixed">Sabit (Köşe)</option>
+            <option value="random">Kontrollü Rastgele</option>
+          </select>
+        </div>
+        <div class="menu-pick">
+          <label for="p1Character">Mavi Oyuncu Karakteri</label>
+          <select id="p1Character">
+            <option value="minoto">⛏ Minoto (Yıkıcı)</option>
+            <option value="hunter">🎯 Hunter (Gözcü)</option>
+            <option value="builder">🧱 İnşaatçı (Mimar)</option>
+            <option value="portal">🌀 Portal (Gezgin)</option>
+            <option value="frog">🐸 Kurbağa (Sıçrayan)</option>
+            <option value="trickster">🎭 Tuzakçı (Kurnaz)</option>
+            <option value="gambler">🎲 Kumarbaz (Stratejist)</option>
+          </select>
+        </div>
+        <div class="menu-pick">
+          <label for="p2Character">Kırmızı Oyuncu Karakteri</label>
+          <select id="p2Character">
+            <option value="hunter">🎯 Hunter (Gözcü)</option>
+            <option value="minoto">⛏ Minoto (Yıkıcı)</option>
+            <option value="builder">🧱 İnşaatçı (Mimar)</option>
+            <option value="portal">🌀 Portal (Gezgin)</option>
+            <option value="frog">🐸 Kurbağa (Sıçrayan)</option>
+            <option value="trickster">🎭 Tuzakçı (Kurnaz)</option>
+            <option value="gambler">🎲 Kumarbaz (Stratejist)</option>
+          </select>
+        </div>
+        <div id="onlineConfig" class="online-config hidden">
+          <div class="menu-pick">
+            <label for="onlineRole">Rol</label>
+            <select id="onlineRole">
+              <option value="host">Host (Mavi)</option>
+              <option value="join">Join (Kırmızı)</option>
+            </select>
+          </div>
+          <div class="menu-pick">
+            <label for="roomCode">Oda Kodu</label>
+            <input id="roomCode" type="text" maxlength="10" placeholder="Örn: CANCAN01" style="width:100%;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(15,23,42,0.8);color:#f1f5f9;padding:10px;font-size:0.92rem;" />
+          </div>
+          <div class="menu-pick">
+            <label for="serverUrl">WS Sunucu URL</label>
+            <input id="serverUrl" type="text" placeholder="wss://<senin-server-adresin> veya ws://localhost:8787" value="" style="width:100%;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(15,23,42,0.8);color:#f1f5f9;padding:10px;font-size:0.92rem;" />
+          </div>
+          <div class="online-share-row">
+            <button id="copyInviteBtn" type="button" class="button-secondary">Davet Linki Kopyala</button>
+          </div>
+          <div id="networkStatus" class="network-status">Online ayarlar hazır.</div>
+        </div>
+      </div>
+      <div class="menu-actions">
+        <button id="startBtn">Oyunu Başlat</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="helpOverlay" class="help-overlay" aria-hidden="true">
+    <div class="help-card">
+      <div class="help-title">Hızlı Yardım</div>
+      <ul class="help-list">
+        <li><span class="kbd">Space</span> Yetenek modunu aç/kapat</li>
+        <li><span class="kbd">T</span> Turu geçir</li>
+        <li><span class="kbd">G</span> Tehlike katmanını aç/kapat</li>
+        <li><span class="kbd">C</span> Koordinat etiketini aç/kapat</li>
+        <li><span class="kbd">B</span> Renk körü modunu aç/kapat</li>
+        <li><span class="kbd">P</span> Duraklat/devam et</li>
+        <li><span class="kbd">M</span> Sesi aç/kapat</li>
+        <li><span class="kbd">R</span> Maçı yeniden başlat</li>
+        <li><span class="kbd">H</span> Yardım penceresi</li>
+        <li><span class="kbd">Esc</span> Yetenek modunu kapat / yardımı kapat</li>
+      </ul>
+      <button id="closeHelpBtn" class="button-secondary" style="width:100%;">Kapat</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const turnBadge = document.getElementById("turnBadge");
+    const infoText = document.getElementById("infoText");
+    const matchSummary = document.getElementById("matchSummary");
+    const matchSummaryBody = document.getElementById("matchSummaryBody");
+    const matchSummaryMeta = document.getElementById("matchSummaryMeta");
+    const visitCountEl = document.getElementById("visitCount");
+    const startCountEl = document.getElementById("startCount");
+    const botStartCountEl = document.getElementById("botStartCount");
+    const onlineStartCountEl = document.getElementById("onlineStartCount");
+    const finishCountEl = document.getElementById("finishCount");
+    const shareCountEl = document.getElementById("shareCount");
+    const combatLog = document.getElementById("combatLog");
+    const charTip = document.getElementById("charTip");
+    const menuOverlay = document.getElementById("menuOverlay");
+    const startBtn = document.getElementById("startBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const abilityBtn = document.getElementById("abilityBtn");
+    const skipTurnBtn = document.getElementById("skipTurnBtn");
+    const dangerBtn = document.getElementById("dangerBtn");
+    const coordsBtn = document.getElementById("coordsBtn");
+    const colorblindBtn = document.getElementById("colorblindBtn");
+    const helpBtn = document.getElementById("helpBtn");
+    const copyStatsBtn = document.getElementById("copyStatsBtn");
+    const shareResultBtn = document.getElementById("shareResultBtn");
+    const closeHelpBtn = document.getElementById("closeHelpBtn");
+    const soundBtn = document.getElementById("soundBtn");
+    const helpOverlay = document.getElementById("helpOverlay");
+    const smartTip = document.getElementById("smartTip");
+    const gameModeSelect = document.getElementById("gameMode");
+    const mapSelect = document.getElementById("mapSelect");
+    const spawnSelect = document.getElementById("spawnSelect");
+    const p1CharacterSelect = document.getElementById("p1Character");
+    const p2CharacterSelect = document.getElementById("p2Character");
+    const onlineConfig = document.getElementById("onlineConfig");
+    const onlineRoleSelect = document.getElementById("onlineRole");
+    const roomCodeInput = document.getElementById("roomCode");
+    const serverUrlInput = document.getElementById("serverUrl");
+    const copyInviteBtn = document.getElementById("copyInviteBtn");
+    const networkStatus = document.getElementById("networkStatus");
+    const p1WinsEl = document.getElementById("p1Wins");
+    const p2WinsEl = document.getElementById("p2Wins");
+
+    let GRID = 10;
+    let TILE = canvas.width / GRID;
+    let WALL_COUNT = 14;
+    let MAP_TRAP_COUNT = 3;
+    const MAP_TRAP_DAMAGE = 3;
+    const ABILITY_COOLDOWN_TURNS = 2;
+    const PORTAL_BASE_RANGE = 5;
+    const TRICKSTER_BASE_RANGE = 6;
+    const MAX_HP = 6;
+    const BASE_POWERUP_TYPES = ["speed", "diagonal", "jump", "shield", "heal"];
+    const POWERUP_SPAWN_INTERVAL = 3;
+    const POWERUP_WARNING_TURNS = 1;
+    const POWERUP_MIN_PLAYER_DIST = 3;
+    const MAP_POWER_ACTIVE_TURNS = 4;
+    const MAX_SIMULTANEOUS_MAP_POWERS = 2;
+    const CASTLE_AURA_DAMAGE = 2;
+    const CONTACT_DAMAGE = 4;
+    const PORTAL_BLOCK_DAMAGE = 1;
+    const HUNTER_SHOT_DAMAGE = 4;
+    const FROG_STOMP_DAMAGE = 4;
+    const MINOTO_DASH_DAMAGE = 4;
+    const GAMBLER_PREDICTION_TURNS = 7;
+
+    const MAPS = {
+      classic: { label: "Klasik", grid: 10, walls: 14, traps: 3, powerups: 3 },
+      wide: { label: "Geniş Alan", grid: 12, walls: 20, traps: 4, powerups: 4 },
+      maze: { label: "Labirent", grid: 14, walls: 30, traps: 5, powerups: 5 },
+      epic: { label: "Büyük Savaş", grid: 16, walls: 40, traps: 6, powerups: 6 }
+    };
+
+    const CHARACTERS = {
+      minoto: {
+        label: "Minoto (Yıkıcı)",
+        ability: "Yıkım",
+        cooldown: ABILITY_COOLDOWN_TURNS,
+        symbol: "⛏",
+        accent: "#f59e0b",
+        freeActionAfterAbility: true,
+        description: "Bitişik duvarı kırar. 3 kırım sonrası açılan kombo sürüş seçilen çizgide harita sonuna akar, duvar kırmaz ve rakibi ezer."
+      },
+      hunter: {
+        label: "Hunter (Gözcü)",
+        ability: "Keskin Atış",
+        cooldown: ABILITY_COOLDOWN_TURNS,
+        symbol: "🎯",
+        accent: "#ef4444",
+        freeActionAfterAbility: true,
+        description: "Sadece çapraz hatta, duvar engeli yoksa ve menzil içindeyse hedefi vurur."
+      },
+      builder: {
+        label: "İnşaatçı (Mimar)",
+        ability: "Kale Kur",
+        cooldown: ABILITY_COOLDOWN_TURNS,
+        symbol: "🧱",
+        accent: "#22c55e",
+        freeActionAfterAbility: true,
+        description: "2 tur yaşayan kale kurar. Rakip 3x3 alana girerse -2 can vurur ve dağılır."
+      },
+      portal: {
+        label: "Portal (Gezgin)",
+        ability: "Portal Kur",
+        cooldown: ABILITY_COOLDOWN_TURNS,
+        symbol: "🌀",
+        accent: "#60a5fa",
+        freeActionAfterAbility: true,
+        description: "Menzili haritaya göre artan uzaklığa portal kurar; üstünden geçince diğerine gider."
+      },
+      frog: {
+        label: "Kurbağa (Sıçrayan)",
+        ability: "Sıçrama",
+        cooldown: ABILITY_COOLDOWN_TURNS,
+        symbol: "🐸",
+        accent: "#84cc16",
+        description: "2 kare menzile sıçrar, duvarları aşar."
+      },
+      trickster: {
+        label: "Tuzakçı (Kurnaz)",
+        ability: "Ölüm Tuzağı",
+        cooldown: ABILITY_COOLDOWN_TURNS,
+        symbol: "🎭",
+        accent: "#f97316",
+        freeActionAfterAbility: true,
+        description: "Menzili haritaya göre artan uzaklığa tek aktif ölüm tuzağı kurar."
+      },
+      gambler: {
+        label: "Kumarbaz (Stratejist)",
+        ability: "Tahmin Kilidi",
+        cooldown: ABILITY_COOLDOWN_TURNS,
+        symbol: "🎲",
+        accent: "#a855f7",
+        freeActionAfterAbility: true,
+        description: "Tahmin atar ve anında 3 hasar vurur. Tahmin işareti 7 tur sürer."
+      }
+    };
+
+    const POWERUP_META = {
+      speed: { color: "#38bdf8", glow: "rgba(56,189,248,0.55)", symbol: "⚡", label: "Hız" },
+      diagonal: { color: "#a78bfa", glow: "rgba(167,139,250,0.55)", symbol: "✦", label: "Çapraz" },
+      jump: { color: "#4ade80", glow: "rgba(74,222,128,0.55)", symbol: "↑", label: "Atlama" },
+      shield: { color: "#f59e0b", glow: "rgba(245,158,11,0.55)", symbol: "🛡", label: "Kalkan" },
+      heal: { color: "#fb7185", glow: "rgba(251,113,133,0.55)", symbol: "＋", label: "İyileşme" }
+    };
+
+    const MAP_POWER_TYPES = ["speed", "diagonal", "jump", "shield"];
+    const TIMED_MAP_POWER_TYPES = ["speed", "diagonal", "shield"];
+
+    let game = null;
+    let lastFrameTime = 0;
+    let audioCtx = null;
+    let soundEnabled = true;
+    let lastLoggedInfo = "";
+    const winStats = { 1: 0, 2: 0 };
+    const viewState = {
+      showDanger: false,
+      showCoords: true,
+      colorblindMode: false
+    };
+
+    const onlineState = {
+      enabled: false,
+      connected: false,
+      ws: null,
+      role: "host",
+      roomCode: "",
+      localTeam: 1,
+      serverUrl: "",
+      clientId: `c_${Math.random().toString(36).slice(2, 10)}`
+    };
+
+    const botState = {
+      enabled: false,
+      team: 2,
+      thinking: false,
+      timer: 0
+    };
+
+    const ANALYTICS_KEY = "cancan_local_stats_v1";
+    const localStats = loadLocalStats();
+
+    function loadLocalStats() {
+      const fallback = {
+        visits: 0,
+        starts: 0,
+        botStarts: 0,
+        localStarts: 0,
+        onlineStarts: 0,
+        finishes: 0,
+        shares: 0
+      };
+      try {
+        return { ...fallback, ...JSON.parse(localStorage.getItem(ANALYTICS_KEY) || "{}") };
+      } catch {
+        return fallback;
+      }
+    }
+
+    function saveLocalStats() {
+      try {
+        localStorage.setItem(ANALYTICS_KEY, JSON.stringify(localStats));
+      } catch (err) {
+        console.warn("Yerel istatistik kaydedilemedi:", err);
+      }
+    }
+
+    function renderLocalStats() {
+      visitCountEl.textContent = String(localStats.visits);
+      startCountEl.textContent = String(localStats.starts);
+      botStartCountEl.textContent = String(localStats.botStarts);
+      onlineStartCountEl.textContent = String(localStats.onlineStarts);
+      finishCountEl.textContent = String(localStats.finishes);
+      shareCountEl.textContent = String(localStats.shares);
+    }
+
+    function trackLocalStat(key) {
+      localStats[key] = (localStats[key] || 0) + 1;
+      saveLocalStats();
+      renderLocalStats();
+    }
+
+    function trackGameStartForCurrentMode() {
+      trackLocalStat("starts");
+      if (isBotModeSelected()) {
+        trackLocalStat("botStarts");
+        return;
+      }
+      if (isOnlineModeSelected()) {
+        trackLocalStat("onlineStarts");
+        return;
+      }
+      trackLocalStat("localStarts");
+    }
+
+    function buildStatsText() {
+      return [
+        "CanCan 2D yerel istatistikleri",
+        `Ziyaret: ${localStats.visits}`,
+        `Başlatılan maç: ${localStats.starts}`,
+        `Bot modu: ${localStats.botStarts}`,
+        `Yerel mod: ${localStats.localStarts}`,
+        `Online mod: ${localStats.onlineStarts}`,
+        `Biten maç: ${localStats.finishes}`,
+        `Paylaşım: ${localStats.shares}`
+      ].join("\n");
+    }
+
+    async function copyLocalStats() {
+      const text = buildStatsText();
+      try {
+        if (globalThis.navigator?.clipboard?.writeText) {
+          await globalThis.navigator.clipboard.writeText(text);
+          infoText.textContent = "Yerel istatistikler kopyalandı.";
+          return;
+        }
+      } catch (err) {
+        console.warn("İstatistik kopyalanamadı:", err);
+      }
+      globalThis.prompt("Yerel istatistikleri kopyala:", text);
+    }
+
+    const PUBLIC_WS_FALLBACK = "wss://cancan-online-ws.onrender.com";
+
+    function sanitizeRoomCode(raw) {
+      return String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
+    }
+
+    function readSearchParams() {
+      try {
+        return new URLSearchParams(globalThis.location.search || "");
+      } catch {
+        return new URLSearchParams();
+      }
+    }
+
+    function wsUrlFromQuery() {
+      const params = readSearchParams();
+      return normalizeServerUrl(params.get("ws") || "");
+    }
+
+    function applyOnlinePresetFromQuery() {
+      const params = readSearchParams();
+      if (![...params.keys()].length) {
+        return;
+      }
+
+      const mode = params.get("mode");
+      if (mode === "online") {
+        gameModeSelect.value = "online";
+      }
+
+      const role = params.get("role");
+      if (role === "host" || role === "join") {
+        onlineRoleSelect.value = role;
+      }
+
+      const room = sanitizeRoomCode(params.get("room"));
+      if (room) {
+        roomCodeInput.value = room;
+      }
+
+      const wsFromQuery = normalizeServerUrl(params.get("ws"));
+      if (wsFromQuery) {
+        serverUrlInput.value = wsFromQuery;
+        localStorage.setItem("cancan_ws_url", wsFromQuery);
+      }
+
+      updateOnlineConfigVisibility();
+      setNetworkStatus("Davet linki ayarları yüklendi.");
+    }
+
+    function buildJoinInviteLink() {
+      const wsUrl = normalizeServerUrl(serverUrlInput.value) || detectDefaultWsUrl();
+      const roomCode = sanitizeRoomCode(roomCodeInput.value) || sanitizeRoomCode(`CANCAN${Math.floor(Math.random() * 900 + 100)}`);
+
+      roomCodeInput.value = roomCode;
+      serverUrlInput.value = wsUrl;
+
+      const params = new URLSearchParams();
+      params.set("mode", "online");
+      params.set("role", "join");
+      params.set("room", roomCode);
+      params.set("ws", wsUrl);
+
+      return `${globalThis.location.origin}/?${params.toString()}`;
+    }
+
+    async function copyInviteLink() {
+      if (!isOnlineModeSelected()) {
+        setNetworkStatus("Önce Oyun Modu: Online seç.", true);
+        return;
+      }
+      const inviteLink = buildJoinInviteLink();
+      try {
+        if (globalThis.navigator?.clipboard?.writeText) {
+          await globalThis.navigator.clipboard.writeText(inviteLink);
+          setNetworkStatus("Davet linki kopyalandı. Arkadaşın linkten Join olabilir.");
+          return;
+        }
+      } catch (err) {
+        console.warn("Clipboard yazılamadı:", err);
+      }
+
+      globalThis.prompt("Davet linkini kopyala:", inviteLink);
+      setNetworkStatus("Davet linki oluşturuldu.");
+    }
+
+    function detectDefaultWsUrl() {
+      const queryWsUrl = wsUrlFromQuery();
+      if (queryWsUrl) {
+        return queryWsUrl;
+      }
+      const isLocalHost = ["localhost", "127.0.0.1"].includes(globalThis.location.hostname);
+      if (isLocalHost) {
+        return "ws://localhost:8787";
+      }
+      if (globalThis.location.hostname.endsWith("onrender.com")) {
+        const protocol = globalThis.location.protocol === "https:" ? "wss" : "ws";
+        return `${protocol}://${globalThis.location.host}`;
+      }
+      return PUBLIC_WS_FALLBACK;
+    }
+
+    function defaultNetworkStatusText() {
+      return serverUrlInput.value
+        ? "Online ayarlar hazır."
+        : "WS URL gir veya ?ws=wss://... ile aç.";
+    }
+
+    function persistWsUrlFromQueryIfExists() {
+      const queryWsUrl = wsUrlFromQuery();
+      if (queryWsUrl) {
+        localStorage.setItem("cancan_ws_url", queryWsUrl);
+      }
+    }
+
+    function loadInitialWsUrl() {
+      persistWsUrlFromQueryIfExists();
+      const savedWsUrl = normalizeServerUrl(localStorage.getItem("cancan_ws_url"));
+      serverUrlInput.value = savedWsUrl || detectDefaultWsUrl();
+    }
+
+    function normalizeServerUrl(raw) {
+      const value = String(raw || "").trim();
+      if (!value) {
+        return "";
+      }
+      if (value.startsWith("https://")) {
+        return `wss://${value.slice(8)}`;
+      }
+      if (value.startsWith("http://")) {
+        const wsValue = `ws://${value.slice(7)}`;
+        return globalThis.location.protocol === "https:" ? `wss://${wsValue.slice(5)}` : wsValue;
+      }
+      if (globalThis.location.protocol === "https:" && value.startsWith("ws://")) {
+        return `wss://${value.slice(5)}`;
+      }
+      return value;
+    }
+
+    function isOnlineModeSelected() {
+      return gameModeSelect.value === "online";
+    }
+
+    function isBotModeSelected() {
+      return gameModeSelect.value === "bot";
+    }
+
+    function updateOnlineConfigVisibility() {
+      const showOnline = isOnlineModeSelected();
+      onlineConfig.classList.toggle("hidden", !showOnline);
+      if (showOnline && !serverUrlInput.value.trim()) {
+        serverUrlInput.value = detectDefaultWsUrl();
+      }
+      setNetworkStatus(defaultNetworkStatusText());
+    }
+
+    function setNetworkStatus(text, isError = false) {
+      if (!networkStatus) {
+        return;
+      }
+      networkStatus.textContent = text;
+      networkStatus.style.color = isError ? "#fca5a5" : "#93c5fd";
+    }
+
+    function closeOnlineConnection() {
+      if (!onlineState.ws) {
+        onlineState.connected = false;
+        return;
+      }
+      try {
+        onlineState.ws.close();
+      } catch (err) {
+        console.warn("Online soket kapatma hatası:", err);
+      }
+      onlineState.ws = null;
+      onlineState.connected = false;
+    }
+
+    function sendOnlineMessage(payload) {
+      if (!onlineState.enabled || !onlineState.connected || !onlineState.ws) {
+        return;
+      }
+      onlineState.ws.send(JSON.stringify(payload));
+    }
+
+    function cloneGameSnapshot() {
+      return globalThis.structuredClone(game);
+    }
+
+    function applyStateSnapshot(snapshot) {
+      if (!snapshot || typeof snapshot !== "object") {
+        return;
+      }
+      game = snapshot;
+      render();
+    }
+
+    function broadcastSnapshotIfHost(reason = "sync") {
+      if (!onlineState.enabled || onlineState.role !== "host") {
+        return;
+      }
+      sendOnlineMessage({
+        type: "state-snapshot",
+        roomCode: onlineState.roomCode,
+        clientId: onlineState.clientId,
+        reason,
+        state: cloneGameSnapshot()
+      });
+    }
+
+    function applyRemoteAction(action) {
+      if (!action || typeof action !== "object") {
+        return;
+      }
+      if (action.type === "board") {
+        handleBoardAction(action.x, action.y);
+        return;
+      }
+      if (action.type === "ability") {
+        armAbility();
+        return;
+      }
+      if (action.type === "skip") {
+        skipTurn();
+      }
+    }
+
+    function canControlCurrentTurnLocally() {
+      if (!onlineState.enabled) {
+        const player = currentPlayer();
+        return !(botState.enabled && player && player.team === botState.team);
+      }
+      const player = currentPlayer();
+      return Boolean(player) && player.team === onlineState.localTeam;
+    }
+
+    function dispatchLocalAction(action) {
+      if (!game.started || game.paused || isGameOver()) {
+        return;
+      }
+      if (!canControlCurrentTurnLocally()) {
+        infoText.textContent = "Online modda sıra rakipte.";
+        return;
+      }
+
+      if (onlineState.enabled && onlineState.role === "join") {
+        sendOnlineMessage({
+          type: "action-request",
+          roomCode: onlineState.roomCode,
+          clientId: onlineState.clientId,
+          action
+        });
+        return;
+      }
+
+      if (action.type === "board") {
+        handleBoardAction(action.x, action.y);
+      } else if (action.type === "ability") {
+        armAbility();
+      } else if (action.type === "skip") {
+        skipTurn();
+      }
+
+      if (onlineState.enabled) {
+        sendOnlineMessage({
+          type: "action",
+          roomCode: onlineState.roomCode,
+          clientId: onlineState.clientId,
+          action
+        });
+        broadcastSnapshotIfHost("host-action");
+      }
+    }
+
+    function enterOnlineJoinWaiting() {
+      game = newGameState();
+      game.started = false;
+      game.paused = false;
+      setMenuVisible(false);
+      setHelpVisible(false);
+      pauseBtn.textContent = "Duraklat";
+      lastLoggedInfo = "";
+      resetCombatLog();
+      infoText.textContent = `Oda ${onlineState.roomCode} için host bekleniyor...`;
+      render();
+    }
+
+    function connectOnlineTransport() {
+      closeOnlineConnection();
+      if (!onlineState.serverUrl) {
+        setNetworkStatus("WS URL gerekli.", true);
+        return;
+      }
+
+      try {
+        const ws = new WebSocket(onlineState.serverUrl);
+        onlineState.ws = ws;
+        setNetworkStatus("Bağlanıyor...");
+
+        ws.addEventListener("open", () => {
+          onlineState.connected = true;
+          setNetworkStatus(`Bağlandı | Oda: ${onlineState.roomCode}`);
+          sendOnlineMessage({
+            type: "join-room",
+            roomCode: onlineState.roomCode,
+            role: onlineState.role,
+            clientId: onlineState.clientId
+          });
+        });
+
+        ws.addEventListener("message", event => {
+          let packet = null;
+          try {
+            packet = JSON.parse(event.data);
+          } catch (err) {
+            console.warn("Online mesaj parse hatası:", err);
+            return;
+          }
+          if (!packet || packet.roomCode !== onlineState.roomCode) {
+            return;
+          }
+          if (packet.type === "peer-joined" && onlineState.role === "host") {
+            broadcastSnapshotIfHost("peer-joined");
+            return;
+          }
+          if (packet.type === "action-request" && onlineState.role === "host" && packet.clientId !== onlineState.clientId) {
+            applyRemoteAction(packet.action);
+            sendOnlineMessage({
+              type: "action",
+              roomCode: onlineState.roomCode,
+              clientId: onlineState.clientId,
+              action: packet.action
+            });
+            broadcastSnapshotIfHost("remote-action-accepted");
+            return;
+          }
+          if (packet.type === "action" && packet.clientId !== onlineState.clientId) {
+            if (onlineState.role !== "host") {
+              applyRemoteAction(packet.action);
+            }
+            return;
+          }
+          if (packet.type === "state-snapshot" && packet.clientId !== onlineState.clientId) {
+            applyStateSnapshot(packet.state);
+            return;
+          }
+          if (packet.type === "state-sync" && typeof packet.message === "string") {
+            setNetworkStatus(packet.message);
+          }
+        });
+
+        ws.addEventListener("close", () => {
+          onlineState.connected = false;
+          setNetworkStatus("Bağlantı kapandı.", true);
+        });
+
+        ws.addEventListener("error", () => {
+          onlineState.connected = false;
+          setNetworkStatus("Sunucu bağlantı hatası. Yerel test yapılabilir.", true);
+        });
+      } catch (err) {
+        console.warn("Online transport başlatılamadı:", err);
+        onlineState.connected = false;
+        setNetworkStatus("WS başlatılamadı.", true);
+      }
+    }
+
+    function startConfiguredGame() {
+      if (!isOnlineModeSelected()) {
+        onlineState.enabled = false;
+        closeOnlineConnection();
+        botState.enabled = isBotModeSelected();
+        botState.thinking = false;
+        if (botState.timer) {
+          clearTimeout(botState.timer);
+          botState.timer = 0;
+        }
+        restart();
+        return;
+      }
+
+      botState.enabled = false;
+      onlineState.enabled = true;
+      onlineState.role = onlineRoleSelect.value;
+      onlineState.localTeam = onlineState.role === "host" ? 1 : 2;
+      onlineState.serverUrl = normalizeServerUrl(serverUrlInput.value);
+      serverUrlInput.value = onlineState.serverUrl;
+      if (onlineState.serverUrl) {
+        localStorage.setItem("cancan_ws_url", onlineState.serverUrl);
+      }
+
+      const typedRoom = sanitizeRoomCode(roomCodeInput.value);
+      if (onlineState.role === "join" && !typedRoom) {
+        setNetworkStatus("Join için oda kodu gir.", true);
+        return;
+      }
+
+      onlineState.roomCode = typedRoom || sanitizeRoomCode(`CANCAN${Math.floor(Math.random() * 900 + 100)}`);
+      roomCodeInput.value = onlineState.roomCode;
+
+      connectOnlineTransport();
+      if (onlineState.role === "host") {
+        restart();
+        infoText.textContent = `Online host açıldı. Oda: ${onlineState.roomCode}`;
+        broadcastSnapshotIfHost("host-start");
+      } else {
+        trackGameStartForCurrentMode();
+        enterOnlineJoinWaiting();
+        infoText.textContent = `Online odaya katıldın: ${onlineState.roomCode}`;
+      }
+    }
+
+    const TEAM_PALETTES = {
+      default: {
+        1: { base: "#2563eb", light: "#60a5fa" },
+        2: { base: "#dc2626", light: "#f87171" }
+      },
+      colorblind: {
+        1: { base: "#0ea5e9", light: "#67e8f9" },
+        2: { base: "#f97316", light: "#fdba74" }
+      }
+    };
+
+    function ensureAudioContext() {
+      if (audioCtx) {
+        return audioCtx;
+      }
+
+      const Ctx = globalThis.AudioContext || globalThis.webkitAudioContext;
+      if (!Ctx) {
+        return null;
+      }
+
+      audioCtx = new Ctx();
+      return audioCtx;
+    }
+
+    function playTone(freq, duration, type, volume, when = 0) {
+      const ctx = ensureAudioContext();
+      if (!ctx || !soundEnabled) {
+        return;
+      }
+
+      const startAt = ctx.currentTime + when;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, startAt);
+      gain.gain.setValueAtTime(0.0001, startAt);
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, volume), startAt + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startAt);
+      osc.stop(startAt + duration + 0.02);
+    }
+
+    function playSound(kind) {
+      if (!soundEnabled) {
+        return;
+      }
+
+      if (kind === "button") {
+        playTone(480, 0.06, "triangle", 0.05);
+        return;
+      }
+      if (kind === "move") {
+        playTone(320, 0.08, "square", 0.045);
+        return;
+      }
+      if (kind === "powerup") {
+        playTone(620, 0.07, "triangle", 0.06);
+        playTone(860, 0.1, "triangle", 0.05, 0.05);
+        return;
+      }
+      if (kind === "trap") {
+        playTone(180, 0.12, "sawtooth", 0.06);
+        return;
+      }
+      if (kind === "ability") {
+        playTone(540, 0.06, "triangle", 0.045);
+        playTone(740, 0.08, "triangle", 0.04, 0.04);
+        return;
+      }
+      if (kind === "kill") {
+        playTone(220, 0.08, "sawtooth", 0.07);
+        playTone(140, 0.16, "sawtooth", 0.055, 0.08);
+      }
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      soundBtn.textContent = `Ses: ${soundEnabled ? "Açık" : "Kapalı"}`;
+      if (soundEnabled) {
+        playSound("button");
+      }
+    }
+
+    function randomInt(max) {
+      return Math.floor(Math.random() * max);
+    }
+
+    function addCombatLog(text) {
+      const message = (text || "").trim();
+      if (!message) {
+        return;
+      }
+      const li = document.createElement("li");
+      li.textContent = message;
+      li.className = classifyLogMessage(message);
+      combatLog.prepend(li);
+      while (combatLog.children.length > 6) {
+        combatLog.lastChild.remove();
+      }
+    }
+
+    function classifyLogMessage(message) {
+      const msg = message.toLowerCase();
+      if (msg.includes("öld") || msg.includes("hasar") || msg.includes("tuzağ") || msg.includes("kalkan")) {
+        return "log-combat";
+      }
+      if (msg.includes("güc") || msg.includes("iyileş") || msg.includes("kombo") || msg.includes("portal")) {
+        return "log-buff";
+      }
+      if (msg.includes("tahmin") || msg.includes("kilit") || msg.includes("beklemede") || msg.includes("yetenek")) {
+        return "log-control";
+      }
+      return "log-system";
+    }
+
+    function resetCombatLog() {
+      combatLog.innerHTML = "";
+      addCombatLog("Yeni maç başladı.");
+    }
+
+    function observeInfoTextForLog() {
+      const observer = new MutationObserver(() => {
+        const next = infoText.textContent.trim();
+        if (!next || next === lastLoggedInfo) {
+          return;
+        }
+        lastLoggedInfo = next;
+        addCombatLog(next);
+      });
+      observer.observe(infoText, { childList: true, characterData: true, subtree: true });
+    }
+
+    function selectedMapConfig() {
+      return MAPS[mapSelect.value] || MAPS.classic;
+    }
+
+    function updateCharacterTips() {
+      const c1 = CHARACTERS[p1CharacterSelect.value];
+      const c2 = CHARACTERS[p2CharacterSelect.value];
+      p1CharacterSelect.title = `${c1.ability}: ${c1.description}`;
+      p2CharacterSelect.title = `${c2.ability}: ${c2.description}`;
+      charTip.textContent = `Mavi ${c1.symbol} ${c1.ability}: ${c1.description} | Kırmızı ${c2.symbol} ${c2.ability}: ${c2.description}`;
+    }
+
+    function updateAccessibilityButtons() {
+      dangerBtn.textContent = `Tehlike: ${viewState.showDanger ? "Açık" : "Kapalı"}`;
+      coordsBtn.textContent = `Koordinat: ${viewState.showCoords ? "Açık" : "Kapalı"}`;
+      colorblindBtn.textContent = `Renk Körü: ${viewState.colorblindMode ? "Açık" : "Kapalı"}`;
+    }
+
+    function updateSmartTip() {
+      if (!game || !game.started) {
+        smartTip.textContent = "Akıllı ipucu: maç başlayınca burada taktik önerisi görünür.";
+        return;
+      }
+      if (game.paused) {
+        smartTip.textContent = "Akıllı ipucu: oyun duraklatıldı, P ile devam edebilirsin.";
+        return;
+      }
+      if (isGameOver()) {
+        smartTip.textContent = "Akıllı ipucu: yeni maçta farklı eşleşmeler deneyebilirsin.";
+        return;
+      }
+
+      const player = currentPlayer();
+      const enemy = enemyPlayer();
+      const canFinish = movableTiles(player).some(m => m.x === enemy.x && m.y === enemy.y);
+      if (canFinish) {
+        smartTip.textContent = `${player.name} bu tur rakip karesine basıp maçı bitirebilir.`;
+        return;
+      }
+
+      if (canUseAbility(player) && !player.actionDone) {
+        smartTip.textContent = `${abilityLabelForPlayer(player)} hazır. Space ile yetenek modunu aç.`;
+        return;
+      }
+
+      smartTip.textContent = "Tehlike katmanını açıp rakibin erişebileceği kareleri kontrol et.";
+    }
+
+    function syncBodyOverlayLock() {
+      const menuVisible = !menuOverlay.classList.contains("hidden");
+      const helpVisible = helpOverlay.classList.contains("visible");
+      document.body.classList.toggle("overlay-open", menuVisible || helpVisible);
+    }
+
+    function setMenuVisible(visible) {
+      menuOverlay.classList.toggle("hidden", !visible);
+      syncBodyOverlayLock();
+    }
+
+    function setHelpVisible(visible) {
+      helpOverlay.classList.toggle("visible", visible);
+      helpOverlay.setAttribute("aria-hidden", visible ? "false" : "true");
+      syncBodyOverlayLock();
+    }
+
+    function buildSpawnPositions() {
+      if (spawnSelect.value !== "random") {
+        return {
+          p1: { x: 0, y: 0 },
+          p2: { x: GRID - 1, y: GRID - 1 }
+        };
+      }
+
+      const p1ZoneMax = Math.max(1, Math.floor(GRID / 2) - 1);
+      const p2ZoneMin = Math.min(GRID - 1, Math.ceil(GRID / 2));
+      const minDist = Math.max(6, Math.floor(GRID * 0.75));
+
+      for (let i = 0; i < 220; i++) {
+        const p1 = { x: randomInt(p1ZoneMax + 1), y: randomInt(p1ZoneMax + 1) };
+        const p2 = {
+          x: p2ZoneMin + randomInt(GRID - p2ZoneMin),
+          y: p2ZoneMin + randomInt(GRID - p2ZoneMin)
+        };
+        const dist = Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y);
+        if (dist >= minDist) {
+          return { p1, p2 };
+        }
+      }
+
+      return {
+        p1: { x: 0, y: 0 },
+        p2: { x: GRID - 1, y: GRID - 1 }
+      };
+    }
+
+    function inBounds(x, y) {
+      return x >= 0 && y >= 0 && x < GRID && y < GRID;
+    }
+
+    function teamColor(team) {
+      const palette = viewState.colorblindMode ? TEAM_PALETTES.colorblind : TEAM_PALETTES.default;
+      return palette[team].base;
+    }
+
+    function teamLightColor(team) {
+      const palette = viewState.colorblindMode ? TEAM_PALETTES.colorblind : TEAM_PALETTES.default;
+      return palette[team].light;
+    }
+
+    function tileColor(x, y) {
+      return (x + y) % 2 === 0 ? "#1e293b" : "#0f172a";
+    }
+
+    function playerByTeam(team) {
+      return game.players.find(p => p.team === team) || null;
+    }
+
+    function currentPlayer() {
+      return playerByTeam(game.turn);
+    }
+
+    function enemyPlayer() {
+      return game.players.find(p => p.team !== game.turn) || null;
+    }
+
+    function getPlayerAt(x, y) {
+      return game.players.find(p => p.x === x && p.y === y) || null;
+    }
+
+    function getObstacleAt(x, y) {
+      return game.obstacles.find(o => o.x === x && o.y === y) || null;
+    }
+
+    function isWallAt(x, y) {
+      const o = getObstacleAt(x, y);
+      return o && (o.type === "wall" || o.type === "castle");
+    }
+
+    function getDeadlyTrapAt(x, y) {
+      const o = getObstacleAt(x, y);
+      return o && o.type === "deadlyTrap" ? o : null;
+    }
+
+    function hasPowerupAt(x, y) {
+      return game.powerups.some(p => p.x === x && p.y === y);
+    }
+
+    function predictionsForTeam(team) {
+      return game.predictions.filter(item => item.ownerTeam === team);
+    }
+
+    function lineIntersectsWall(fromX, fromY, toX, toY) {
+      const steps = Math.max(Math.abs(toX - fromX), Math.abs(toY - fromY));
+      if (steps <= 1) {
+        return false;
+      }
+
+      const stepX = (toX - fromX) / steps;
+      const stepY = (toY - fromY) / steps;
+      for (let i = 1; i < steps; i++) {
+        const x = fromX + stepX * i;
+        const y = fromY + stepY * i;
+        if (isWallAt(x, y)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function moveRange(player) {
+      if (player.rangeLockTurns > 0) {
+        return 1;
+      }
+      return player.powers.speed ? 2 : 1;
+    }
+
+    function isMoveAllowed(player, targetX, targetY, dx, dy, range) {
+      if (!inBounds(targetX, targetY)) {
+        return false;
+      }
+
+      const dist = Math.max(Math.abs(dx), Math.abs(dy));
+      if (dist > range) {
+        return false;
+      }
+
+      const diagonal = dx !== 0 && dy !== 0;
+      if (diagonal && !player.powers.diagonal) {
+        return false;
+      }
+
+      if (isWallAt(targetX, targetY)) {
+        return false;
+      }
+
+      const occ = getPlayerAt(targetX, targetY);
+      if (occ && occ.team === player.team) {
+        return false;
+      }
+
+      if (!player.powers.jump && lineIntersectsWall(player.x, player.y, targetX, targetY)) {
+        return false;
+      }
+
+      return true;
+    }
+
+    function movableTiles(player) {
+      const range = moveRange(player);
+      const out = [];
+      for (let dy = -range; dy <= range; dy++) {
+        for (let dx = -range; dx <= range; dx++) {
+          if (dx === 0 && dy === 0) {
+            continue;
+          }
+          const tx = player.x + dx;
+          const ty = player.y + dy;
+          if (isMoveAllowed(player, tx, ty, dx, dy, range)) {
+            out.push({ x: tx, y: ty });
+          }
+        }
+      }
+      return out;
+    }
+
+    function placeWalls(state) {
+      while (state.obstacles.filter(o => o.type === "wall").length < WALL_COUNT) {
+        const x = randomInt(GRID);
+        const y = randomInt(GRID);
+        const occupied = state.players.some(p => p.x === x && p.y === y);
+        const hasObstacle = state.obstacles.some(o => o.x === x && o.y === y);
+        if (!occupied && !hasObstacle) {
+          state.obstacles.push({ type: "wall", x, y });
+        }
+      }
+    }
+
+    function placeMapTraps(state) {
+      while (state.obstacles.filter(o => o.type === "trap").length < MAP_TRAP_COUNT) {
+        const x = randomInt(GRID);
+        const y = randomInt(GRID);
+        const occupied = state.players.some(p => p.x === x && p.y === y);
+        const hasObstacle = state.obstacles.some(o => o.x === x && o.y === y);
+        if (!occupied && !hasObstacle) {
+          state.obstacles.push({ type: "trap", x, y });
+        }
+      }
+    }
+
+    function distanceManhattan(ax, ay, bx, by) {
+      return Math.abs(ax - bx) + Math.abs(ay - by);
+    }
+
+    function isBlockedForPowerup(state, x, y) {
+      if (state.obstacles.some(o => o.x === x && o.y === y)) {
+        return true;
+      }
+      if (state.players.some(p => p.x === x && p.y === y)) {
+        return true;
+      }
+      if (state.powerups.some(p => p.x === x && p.y === y)) {
+        return true;
+      }
+      return state.pendingPowerups.some(p => p.x === x && p.y === y);
+    }
+
+    function pickBalancedPowerupTiles(state, desiredCount, minDist) {
+      const p1 = state.players[0];
+      const p2 = state.players[1];
+      const candidates = [];
+
+      for (let y = 0; y < GRID; y++) {
+        for (let x = 0; x < GRID; x++) {
+          if (isBlockedForPowerup(state, x, y)) {
+            continue;
+          }
+          const d1 = distanceManhattan(x, y, p1.x, p1.y);
+          const d2 = distanceManhattan(x, y, p2.x, p2.y);
+          if (d1 < minDist || d2 < minDist) {
+            continue;
+          }
+          candidates.push({ x, y });
+        }
+      }
+
+      // Shuffle candidates so spawn positions are fully random each wave.
+      for (let i = candidates.length - 1; i > 0; i--) {
+        const j = randomInt(i + 1);
+        const temp = candidates[i];
+        candidates[i] = candidates[j];
+        candidates[j] = temp;
+      }
+
+      const picked = [];
+      for (const candidate of candidates) {
+        const tooClose = picked.some(tile => distanceManhattan(tile.x, tile.y, candidate.x, candidate.y) < 2);
+        if (tooClose) {
+          continue;
+        }
+        picked.push({ x: candidate.x, y: candidate.y });
+        if (picked.length >= desiredCount) {
+          break;
+        }
+      }
+
+      return picked;
+    }
+
+    function schedulePowerupWave(state, desiredCount) {
+      const freeSlots = state.powerupRules.maxActive - (state.powerups.length + state.pendingPowerups.length);
+      const count = Math.max(0, Math.min(desiredCount, freeSlots));
+      if (count <= 0) {
+        return;
+      }
+
+      const tiles = pickBalancedPowerupTiles(state, count, state.powerupRules.minDist);
+      for (const tile of tiles) {
+        const type = BASE_POWERUP_TYPES[randomInt(BASE_POWERUP_TYPES.length)];
+        state.pendingPowerups.push({
+          x: tile.x,
+          y: tile.y,
+          type,
+          turnsLeft: state.powerupRules.warningTurns
+        });
+      }
+    }
+
+    function tickPendingPowerups(state) {
+      if (!state.pendingPowerups.length) {
+        return;
+      }
+      const remaining = [];
+      for (const pending of state.pendingPowerups) {
+        pending.turnsLeft -= 1;
+        if (pending.turnsLeft > 0) {
+          remaining.push(pending);
+          continue;
+        }
+        const blockedByObject = state.obstacles.some(o => o.x === pending.x && o.y === pending.y);
+        const blockedByPlayer = state.players.some(p => p.x === pending.x && p.y === pending.y);
+        const blockedByPowerup = state.powerups.some(p => p.x === pending.x && p.y === pending.y);
+        if (blockedByObject || blockedByPlayer || blockedByPowerup) {
+          continue;
+        }
+        state.powerups.push({ x: pending.x, y: pending.y, type: pending.type });
+      }
+      state.pendingPowerups = remaining;
+    }
+
+    function processPowerupTurn(state) {
+      state.turnNumber += 1;
+      tickPendingPowerups(state);
+      if (state.turnNumber % state.powerupRules.interval === 0) {
+        schedulePowerupWave(state, 1);
+      }
+    }
+
+    function newGameState() {
+      const p1Char = p1CharacterSelect.value;
+      const p2Char = p2CharacterSelect.value;
+      const mapCfg = selectedMapConfig();
+
+      GRID = mapCfg.grid;
+      TILE = canvas.width / GRID;
+      WALL_COUNT = mapCfg.walls;
+      MAP_TRAP_COUNT = mapCfg.traps;
+      const spawns = buildSpawnPositions();
+
+      const state = {
+        turn: 1,
+        started: false,
+        paused: false,
+        mapLabel: mapCfg.label,
+        spawnMode: spawnSelect.value,
+        turnNumber: 1,
+        winnerTeam: 0,
+        winnerRegistered: false,
+        pendingPowerups: [],
+        powerupRules: {
+          interval: POWERUP_SPAWN_INTERVAL,
+          warningTurns: POWERUP_WARNING_TURNS,
+          minDist: POWERUP_MIN_PLAYER_DIST,
+          maxActive: mapCfg.powerups
+        },
+        players: [
+          {
+            id: "p1",
+            name: "Mavi",
+            team: 1,
+            x: spawns.p1.x,
+            y: spawns.p1.y,
+            hp: MAX_HP,
+            actionDone: false,
+            abilityArmed: false,
+            cooldown: 0,
+            pendingCooldown: 0,
+            characterId: p1Char,
+            trapCharges: p1Char === "trickster" ? 2 : 0,
+            minotoBreaks: 0,
+            minotoDashReady: false,
+            rangeLockTurns: 0,
+            freeActionAfterAbility: false,
+            abilityUsedThisTurn: false,
+            pendingPowerup: null,
+            diagonalExpiresAtTurn: 0,
+            mapPowerTurnsLeft: 0,
+            mapPowerLockTurns: 0,
+            mapPowerQueue: [],
+            powers: { speed: false, diagonal: false, jump: false, shield: false }
+          },
+          {
+            id: "p2",
+            name: "Kırmızı",
+            team: 2,
+            x: spawns.p2.x,
+            y: spawns.p2.y,
+            hp: MAX_HP,
+            actionDone: false,
+            abilityArmed: false,
+            cooldown: 0,
+            pendingCooldown: 0,
+            characterId: p2Char,
+            trapCharges: p2Char === "trickster" ? 2 : 0,
+            minotoBreaks: 0,
+            minotoDashReady: false,
+            rangeLockTurns: 0,
+            freeActionAfterAbility: false,
+            abilityUsedThisTurn: false,
+            pendingPowerup: null,
+            diagonalExpiresAtTurn: 0,
+            mapPowerTurnsLeft: 0,
+            mapPowerLockTurns: 0,
+            mapPowerQueue: [],
+            powers: { speed: false, diagonal: false, jump: false, shield: false }
+          }
+        ],
+        obstacles: [],
+        powerups: [],
+        effect: null,
+        portals: { 1: [], 2: [] },
+        predictions: []
+      };
+
+      placeWalls(state);
+      placeMapTraps(state);
+      schedulePowerupWave(state, mapCfg.powerups);
+      return state;
+    }
+
+    function powerSummaryHTML(player) {
+      const pips = [];
+      pips.push(`<span class='power-pip'>${CHARACTERS[player.characterId].symbol} ${CHARACTERS[player.characterId].label}</span>`);
+      if (CHARACTERS[player.characterId].freeActionAfterAbility) {
+        pips.push("<span class='power-pip'>↺ Yetenek sonrası hamle</span>");
+      }
+      if (player.powers.speed) { pips.push("<span class='power-pip'>⚡ Hız</span>"); }
+      if (player.powers.diagonal) { pips.push("<span class='power-pip'>✦ Çapraz</span>"); }
+      if (player.powers.jump) { pips.push("<span class='power-pip'>↑ Atlama</span>"); }
+      if (player.powers.shield) { pips.push("<span class='power-pip'>🛡 Kalkan</span>"); }
+      if (TIMED_MAP_POWER_TYPES.some(powerType => player.powers[powerType]) && player.mapPowerTurnsLeft > 0) {
+        pips.push(`<span class='power-pip'>⏱ Güç Süresi: ${player.mapPowerTurnsLeft}</span>`);
+      }
+      if (player.mapPowerLockTurns > 0) {
+        pips.push(`<span class='power-pip'>🔒 Yeni Güç: ${player.mapPowerLockTurns} tur</span>`);
+      }
+      if (player.characterId === "trickster") {
+        pips.push(`<span class='power-pip'>🕳 Tuzak: ${player.trapCharges}</span>`);
+      }
+      if (player.characterId === "minoto") {
+        pips.push(`<span class='power-pip'>🧱 Kırım: ${player.minotoBreaks}/3</span>`);
+        if (player.minotoDashReady) {
+          pips.push("<span class='power-pip'>🔥 Kombo Hazır</span>");
+        }
+      }
+      if (player.characterId === "gambler") {
+        pips.push(`<span class='power-pip'>🎲 Tahmin: ${predictionsForTeam(player.team).length}</span>`);
+      }
+      if (player.rangeLockTurns > 0) {
+        pips.push(`<span class='power-pip'>⛓ Menzil Kilidi: ${player.rangeLockTurns}</span>`);
+      }
+      return pips.join("");
+    }
+
+    function updatePowerupLegend() {
+      const hint = document.querySelector(".hint");
+      if (!hint) {
+        return;
+      }
+
+      hint.innerHTML = `
+        Güçler <strong>3 turda 1</strong> dengeli bölgelerde işaretlenir.<br>
+        İşaretli kareye gelen oyuncu <strong>1 tur mühür açar</strong>.<br><br>
+        <strong>⚡ H</strong> Hız — 2 kare hareket<br>
+        <strong>✦ Ç</strong> Çapraz — çapraz yönler açılır<br>
+        <strong>↑ A</strong> Atlama — engel aşma<br>
+        <strong>🛡 K</strong> Kalkan — bir ölümcül darbeyi engeller<br>
+        <strong>🕳 T</strong> Tuzak — üzerine basan 3 can kaybeder<br>
+        <strong>＋ İ</strong> İyileşme — can yeniler<br><br>
+        Her tur tek aksiyon: hareket veya yetenek.
+      `;
+    }
+
+    function createEffect(kind, x, y, color, symbol = "") {
+      game.effect = { kind, x, y, life: 0.5, color, symbol };
+    }
+
+    function updateEffect(dt) {
+      if (!game.effect) {
+        return;
+      }
+      game.effect.life -= dt;
+      if (game.effect.life <= 0) {
+        game.effect = null;
+      }
+    }
+
+    function drawEffect() {
+      if (!game.effect) {
+        return;
+      }
+
+      const fx = game.effect;
+      const cx = fx.x * TILE + TILE / 2;
+      const cy = fx.y * TILE + TILE / 2;
+      const progress = Math.max(0, 1 - fx.life / 0.5);
+      const radius = TILE * (0.2 + progress * 0.65);
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = fx.color;
+      ctx.lineWidth = 3 + progress * 3;
+      ctx.globalAlpha = 0.9 - progress * 0.65;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      if (fx.symbol) {
+        ctx.globalAlpha = 0.95 - progress * 0.45;
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `bold ${Math.max(12, Math.round(TILE * 0.24))}px sans-serif`;
+        ctx.fillText(fx.symbol, cx, cy);
+      }
+      ctx.restore();
+    }
+
+    function isGameOver() {
+      return game.players.some(p => p.hp <= 0);
+    }
+
+    function alivePlayers() {
+      return game.players.filter(p => p.hp > 0);
+    }
+
+    function winnerTeam() {
+      const alive = alivePlayers();
+      return alive.length === 1 ? alive[0].team : 0;
+    }
+
+    function winnerName() {
+      const team = winnerTeam();
+      if (!team) {
+        return "Berabere";
+      }
+      const winner = playerByTeam(team);
+      return winner ? winner.name : "Berabere";
+    }
+
+    function canonicalGameUrl() {
+      const origin = globalThis.location.origin;
+      if (!origin || origin === "null") {
+        return "https://cancan-ten.vercel.app/";
+      }
+      return `${origin}/`;
+    }
+
+    function buildResultShareText() {
+      const team = game.winnerTeam || winnerTeam();
+      const result = team ? `${playerByTeam(team)?.name || "Kazanan"} kazandı` : "Maç berabere bitti";
+      const score = `Mavi ${winStats[1]} - ${winStats[2]} Kırmızı`;
+      const mode = isBotModeSelected() ? "Bot'a Karşı" : (gameModeSelect.value === "online" ? "Online" : "Yerel");
+      const mapName = mapSelect.selectedOptions[0]?.textContent || "CanCan haritası";
+      return `CanCan 2D\n${result}\nSkor: ${score}\nMod: ${mode} | Harita: ${mapName}\nSen de oyna: ${canonicalGameUrl()}`;
+    }
+
+    async function shareResult() {
+      if (!isGameOver()) {
+        infoText.textContent = "Sonuç paylaşmak için maçın bitmesini bekle.";
+        return;
+      }
+
+      const title = "CanCan 2D maç sonucu";
+      const text = buildResultShareText();
+      const url = canonicalGameUrl();
+
+      try {
+        if (globalThis.navigator?.share) {
+          await globalThis.navigator.share({ title, text, url });
+          trackLocalStat("shares");
+          return;
+        }
+        if (globalThis.navigator?.clipboard?.writeText) {
+          await globalThis.navigator.clipboard.writeText(text);
+          trackLocalStat("shares");
+          infoText.textContent = "Maç sonucu kopyalandı. İstediğin yerde paylaşabilirsin.";
+          return;
+        }
+      } catch (err) {
+        console.warn("Sonuç paylaşılamadı:", err);
+      }
+
+      globalThis.prompt("Maç sonucunu kopyala:", text);
+      trackLocalStat("shares");
+    }
+
+    function updateShareResultButton() {
+      shareResultBtn.disabled = !isGameOver();
+    }
+
+    function setMatchSummaryVisible(visible) {
+      matchSummary.classList.toggle("hidden", !visible);
+    }
+
+    function updateMatchSummary() {
+      if (!isGameOver()) {
+        setMatchSummaryVisible(false);
+        return;
+      }
+
+      const team = game.winnerTeam || winnerTeam();
+      const result = team ? `${playerByTeam(team)?.name || "Kazanan"} kazandı` : "Maç berabere";
+      const mode = isBotModeSelected() ? "Bot'a Karşı" : (isOnlineModeSelected() ? "Online" : "Yerel");
+      const mapName = mapSelect.selectedOptions[0]?.textContent || "Harita";
+      matchSummaryBody.textContent = result;
+      matchSummaryMeta.textContent = `${mode} | ${mapName} | Skor: Mavi ${winStats[1]} - ${winStats[2]} Kırmızı`;
+      setMatchSummaryVisible(true);
+    }
+
+    function updateWinCounter() {
+      p1WinsEl.textContent = String(winStats[1]);
+      p2WinsEl.textContent = String(winStats[2]);
+    }
+
+    function registerWinnerIfNeeded() {
+      if (!isGameOver() || game.winnerRegistered) {
+        return;
+      }
+
+      game.winnerRegistered = true;
+      game.winnerTeam = winnerTeam();
+
+      if (game.winnerTeam) {
+        winStats[game.winnerTeam] += 1;
+        const winner = playerByTeam(game.winnerTeam);
+        if (winner) {
+          infoText.textContent = `${winner.name} kazandı! 🏆`;
+          addCombatLog(`${winner.name} maçı kazandı!`);
+          createEffect("win", winner.x, winner.y, teamLightColor(winner.team), "👑");
+        }
+      } else {
+        infoText.textContent = "Maç berabere bitti.";
+        addCombatLog("Maç berabere bitti.");
+      }
+      updateWinCounter();
+      updateShareResultButton();
+      updateMatchSummary();
+      trackLocalStat("finishes");
+    }
+
+    function applyPowerupToPlayer(player, picked) {
+      if (picked.type === "heal") {
+        player.hp = Math.min(MAX_HP, player.hp + 2);
+        infoText.textContent = `${player.name} iyileşme aldı!`;
+        createEffect("heal", player.x, player.y, POWERUP_META.heal.color);
+        playSound("powerup");
+        return;
+      }
+
+      if (picked.type === "jump") {
+        player.powers.jump = true;
+        player.mapPowerLockTurns = 0;
+        infoText.textContent = `${player.name} ${POWERUP_META[picked.type].label} gücünü aldı!`;
+        createEffect("powerup", player.x, player.y, POWERUP_META[picked.type].color);
+        playSound("powerup");
+        return;
+      }
+
+      if (!TIMED_MAP_POWER_TYPES.includes(picked.type)) {
+        return;
+      }
+
+      if (!Array.isArray(player.mapPowerQueue)) {
+        player.mapPowerQueue = [];
+      }
+
+      const existingIndex = player.mapPowerQueue.indexOf(picked.type);
+      if (existingIndex !== -1) {
+        player.mapPowerQueue.splice(existingIndex, 1);
+      } else if (player.mapPowerQueue.length >= MAX_SIMULTANEOUS_MAP_POWERS) {
+        const removedType = player.mapPowerQueue.shift();
+        if (removedType) {
+          player.powers[removedType] = false;
+        }
+      }
+
+      player.mapPowerQueue.push(picked.type);
+      player.powers[picked.type] = true;
+      player.mapPowerLockTurns = 0;
+      player.mapPowerTurnsLeft = MAP_POWER_ACTIVE_TURNS;
+      infoText.textContent = `${player.name} ${POWERUP_META[picked.type].label} gücünü aldı!`;
+      createEffect("powerup", player.x, player.y, POWERUP_META[picked.type].color);
+      playSound("powerup");
+    }
+
+    function hasUnconsumedMapPower(player) {
+      return MAP_POWER_TYPES.some(powerType => player.powers[powerType]);
+    }
+
+    function expireTimedMapPowers(player) {
+      const hasTimedMapPower = TIMED_MAP_POWER_TYPES.some(powerType => player.powers[powerType]);
+      if (hasTimedMapPower) {
+        if (player.mapPowerTurnsLeft <= 0) {
+          player.mapPowerTurnsLeft = MAP_POWER_ACTIVE_TURNS;
+        }
+        player.mapPowerTurnsLeft -= 1;
+
+        if (player.mapPowerTurnsLeft <= 0) {
+          for (const powerType of TIMED_MAP_POWER_TYPES) {
+            player.powers[powerType] = false;
+          }
+          player.mapPowerQueue = [];
+          player.diagonalExpiresAtTurn = 0;
+          player.mapPowerTurnsLeft = 0;
+          player.mapPowerLockTurns = 0;
+          infoText.textContent = `${player.name} süreli harita gücünü kaybetti. Yeni güç hemen alınabilir.`;
+        }
+        return;
+      }
+
+      if (player.mapPowerTurnsLeft > 0) {
+        player.mapPowerTurnsLeft = 0;
+        player.mapPowerLockTurns = 0;
+      }
+      player.mapPowerQueue = [];
+    }
+
+    function resolvePendingPowerupForPlayer(player) {
+      const pending = player.pendingPowerup;
+      if (!pending || player.hp <= 0) {
+        player.pendingPowerup = null;
+        return false;
+      }
+
+      if (player.x !== pending.x || player.y !== pending.y) {
+        player.pendingPowerup = null;
+        return false;
+      }
+
+      const idx = game.powerups.findIndex(p => p.x === pending.x && p.y === pending.y && p.type === pending.type);
+      if (idx === -1) {
+        player.pendingPowerup = null;
+        return false;
+      }
+
+      const picked = game.powerups[idx];
+      game.powerups.splice(idx, 1);
+      player.pendingPowerup = null;
+      applyPowerupToPlayer(player, picked);
+      return true;
+    }
+
+    function startPowerupCaptureIfAny(player) {
+      const idx = game.powerups.findIndex(p => p.x === player.x && p.y === player.y);
+      if (idx === -1) {
+        player.pendingPowerup = null;
+        return;
+      }
+
+      if (player.mapPowerLockTurns > 0) {
+        infoText.textContent = `${player.name} ${player.mapPowerLockTurns} tur sonra yeni harita gücü alabilir.`;
+        return;
+      }
+
+      const target = game.powerups[idx];
+      if (target.type === "shield") {
+        game.powerups.splice(idx, 1);
+        player.pendingPowerup = null;
+        applyPowerupToPlayer(player, target);
+        return;
+      }
+
+      if (
+        player.pendingPowerup
+        && player.pendingPowerup.x === target.x
+        && player.pendingPowerup.y === target.y
+        && player.pendingPowerup.type === target.type
+      ) {
+        return;
+      }
+
+      player.pendingPowerup = { x: target.x, y: target.y, type: target.type };
+      infoText.textContent = `${player.name} ${POWERUP_META[target.type].label} için mührü açmaya başladı. 1 tur dayan!`;
+      createEffect("powerup", target.x, target.y, POWERUP_META[target.type].color, "⏳");
+    }
+
+    function applyShieldLogic(attacker, defender) {
+      if (!defender.powers.shield) {
+        return false;
+      }
+
+      defender.powers.shield = false;
+      infoText.textContent = `${defender.name} kalkanını kullandı!`;
+      createEffect("shield", defender.x, defender.y, POWERUP_META.shield.color);
+      return true;
+    }
+
+    function applyCombatDamage(attacker, defender, damage, symbol) {
+      if (applyShieldLogic(attacker, defender)) {
+        return false;
+      }
+
+      defender.hp = Math.max(0, defender.hp - damage);
+      if (defender.hp === 0) {
+        createEffect("kill", defender.x, defender.y, teamColor(attacker.team), symbol);
+        playSound("kill");
+      } else {
+        createEffect("trap", defender.x, defender.y, teamColor(attacker.team), symbol);
+      }
+      return true;
+    }
+
+    function applyPortalTransit(player) {
+      const portals = game.portals[player.team];
+      if (portals.length !== 2) {
+        return;
+      }
+
+      function tryTransit(destination) {
+        const blocker = getPlayerAt(destination.x, destination.y);
+        if (!blocker) {
+          player.x = destination.x;
+          player.y = destination.y;
+          return;
+        }
+
+        if (blocker.team === player.team) {
+          infoText.textContent = `${player.name} portal çıkışı dolu, ışınlanma iptal.`;
+          return;
+        }
+
+        {
+          const beforeHp = blocker.hp;
+          applyCombatDamage(player, blocker, PORTAL_BLOCK_DAMAGE, "🌀");
+          if (beforeHp === blocker.hp) {
+            infoText.textContent = `${player.name} portal çıkışı dolu. ${blocker.name} kalkanla hasarı engelledi.`;
+          } else {
+            infoText.textContent = `${player.name} portal çıkışı dolu olduğu için ${blocker.name} -${PORTAL_BLOCK_DAMAGE} hasar aldı.`;
+          }
+        }
+      }
+
+      if (player.x === portals[0].x && player.y === portals[0].y) {
+        const destination = portals[1];
+        tryTransit(destination);
+      } else if (player.x === portals[1].x && player.y === portals[1].y) {
+        const destination = portals[0];
+        tryTransit(destination);
+      }
+    }
+
+    function checkDeadlyTrap(player) {
+      const trap = getDeadlyTrapAt(player.x, player.y);
+      if (!trap || trap.ownerTeam === player.team) {
+        return false;
+      }
+
+      player.hp = 0;
+      createEffect("kill", player.x, player.y, "#ef4444");
+      infoText.textContent = `${player.name} ölüm tuzağına yakalandı!`;
+      playSound("kill");
+      return true;
+    }
+
+    function checkMapTrapDamage(player) {
+      const trap = getObstacleAt(player.x, player.y);
+      if (!trap || trap.type !== "trap") {
+        return false;
+      }
+
+      game.obstacles = game.obstacles.filter(o => !(o.type === "trap" && o.x === trap.x && o.y === trap.y));
+      player.hp = Math.max(0, player.hp - MAP_TRAP_DAMAGE);
+      createEffect("trap", player.x, player.y, "#f97316");
+      infoText.textContent = `${player.name} tuzağa bastı! -${MAP_TRAP_DAMAGE} can`;
+      playSound("trap");
+      return true;
+    }
+
+    function checkCastleAuraDamage(player) {
+      const hostileCastle = game.obstacles.find(o => {
+        if (o.type !== "castle" || o.ownerTeam === player.team) {
+          return false;
+        }
+        return Math.abs(o.x - player.x) <= 1 && Math.abs(o.y - player.y) <= 1;
+      });
+
+      if (!hostileCastle) {
+        return false;
+      }
+
+      player.hp = Math.max(0, player.hp - CASTLE_AURA_DAMAGE);
+      infoText.textContent = `${player.name} kale kontrol alanına girdi! -${CASTLE_AURA_DAMAGE} can`;
+      createEffect("trap", player.x, player.y, "#22c55e", "🏰");
+      playSound("trap");
+      game.obstacles = game.obstacles.filter(o => o !== hostileCastle);
+      return true;
+    }
+
+    function tickCastles() {
+      game.obstacles = game.obstacles.filter(obstacle => {
+        if (obstacle.type !== "castle") {
+          return true;
+        }
+        obstacle.turnsLeft -= 1;
+        return obstacle.turnsLeft > 0;
+      });
+    }
+
+    function resolvePredictionsTick() {
+      if (!game.predictions || game.predictions.length === 0) {
+        return;
+      }
+
+      const remaining = [];
+      for (const prediction of game.predictions) {
+        prediction.turnsLeft -= 1;
+        if (prediction.turnsLeft > 0) {
+          remaining.push(prediction);
+          continue;
+        }
+
+        const target = playerByTeam(prediction.targetTeam);
+        if (target && target.x === prediction.x && target.y === prediction.y) {
+          target.rangeLockTurns = Math.max(target.rangeLockTurns, 2);
+          infoText.textContent = `${target.name} için menzil kilidi aktif!`;
+          createEffect("trap", target.x, target.y, "#a855f7", "⛓");
+        } else {
+          infoText.textContent = "Kumarbaz tahmini boşa çıktı.";
+        }
+      }
+
+      game.predictions = remaining;
+    }
+
+    function startNextTurn() {
+      game.turn = game.turn === 1 ? 2 : 1;
+      processPowerupTurn(game);
+      tickCastles();
+      resolvePredictionsTick();
+      const player = currentPlayer();
+      player.actionDone = false;
+      player.abilityArmed = false;
+      player.freeActionAfterAbility = false;
+      player.abilityUsedThisTurn = false;
+      if (player.cooldown > 0) {
+        player.cooldown -= 1;
+      }
+      if (player.rangeLockTurns > 0) {
+        player.rangeLockTurns -= 1;
+      }
+      expireTimedMapPowers(player);
+      const gainedPowerup = resolvePendingPowerupForPlayer(player);
+      if (!gainedPowerup) {
+        infoText.textContent = `Sıradaki: ${player.name}`;
+      }
+    }
+
+    function endTurn() {
+      const player = currentPlayer();
+      if (player && player.pendingCooldown > 0) {
+        player.cooldown = player.pendingCooldown;
+        player.pendingCooldown = 0;
+      }
+      if (isGameOver()) {
+        render();
+        return;
+      }
+      startNextTurn();
+      render();
+      scheduleBotTurnIfNeeded();
+    }
+
+    function isBotTurn() {
+      const player = currentPlayer();
+      return Boolean(botState.enabled && game.started && !game.paused && !isGameOver() && player && player.team === botState.team);
+    }
+
+    function chooseBotMove(player) {
+      const moves = movableTiles(player);
+      if (!moves.length) {
+        return null;
+      }
+
+      const enemy = game.players.find(p => p.team !== player.team);
+      const scoreMove = move => {
+        let score = 0;
+        if (enemy) {
+          const canHitEnemy = move.x === enemy.x && move.y === enemy.y;
+          score += canHitEnemy ? 1000 : 0;
+          score -= distanceManhattan(move.x, move.y, enemy.x, enemy.y) * 8;
+        }
+
+        const powerup = game.powerups.find(p => p.x === move.x && p.y === move.y);
+        if (powerup) {
+          score += powerup.type === "heal" && player.hp >= MAX_HP ? 8 : 45;
+        }
+
+        const trap = getObstacleAt(move.x, move.y);
+        if (trap?.type === "trap" || trap?.type === "deadlyTrap") {
+          score -= 80;
+        }
+        if (trap?.type === "castle" && trap.ownerTeam !== player.team) {
+          score -= 30;
+        }
+
+        score += Math.random() * 4;
+        return score;
+      };
+
+      return moves
+        .map(move => ({ ...move, score: scoreMove(move) }))
+        .sort((a, b) => b.score - a.score)[0];
+    }
+
+    function playBotTurn() {
+      botState.thinking = false;
+      botState.timer = 0;
+      if (!isBotTurn()) {
+        return;
+      }
+
+      const player = currentPlayer();
+      const move = chooseBotMove(player);
+      if (!move) {
+        skipTurn();
+        return;
+      }
+
+      infoText.textContent = `${player.name} düşünüp hamlesini yaptı.`;
+      handleBoardAction(move.x, move.y);
+    }
+
+    function scheduleBotTurnIfNeeded() {
+      if (botState.timer) {
+        clearTimeout(botState.timer);
+        botState.timer = 0;
+      }
+      if (!isBotTurn()) {
+        botState.thinking = false;
+        return;
+      }
+
+      botState.thinking = true;
+      infoText.textContent = "Bot hamlesini düşünüyor...";
+      botState.timer = globalThis.setTimeout(playBotTurn, 650);
+    }
+
+    function isTileEmptyForUtility(x, y) {
+      return inBounds(x, y)
+        && !getPlayerAt(x, y)
+        && !getObstacleAt(x, y)
+        && !hasPowerupAt(x, y);
+    }
+
+    function canUseAbility(player) {
+      const minotoComboFollowup = player.characterId === "minoto" && player.minotoDashReady;
+      return player.cooldown === 0 && !player.actionDone && (!player.abilityUsedThisTurn || minotoComboFollowup);
+    }
+
+    function abilityLabelForPlayer(player) {
+      if (!player) {
+        return "Yetenek";
+      }
+      if (player.characterId === "minoto" && player.minotoDashReady) {
+        return "Kombo Sürüş";
+      }
+      return CHARACTERS[player.characterId].ability;
+    }
+
+    function builderCastleRange() {
+      // 10x10 map -> 4 range, then +1 per 2 grid growth (12->5, 14->6, 16->7)
+      return 4 + Math.max(0, Math.floor((GRID - 10) / 2));
+    }
+
+    function hunterCastRange() {
+      // Map-specific balance: 10/12/14/16 -> 4/5/7/8
+      const byGrid = { 10: 4, 12: 5, 14: 7, 16: 8 };
+      return byGrid[GRID] ?? 4;
+    }
+
+    function portalCastRange() {
+      // Keep portal controlled: slow scaling on larger maps.
+      return PORTAL_BASE_RANGE + Math.max(0, Math.floor((GRID - 10) / 4));
+    }
+
+    function tricksterCastRange() {
+      // Trap throw also scales slowly with map size.
+      return TRICKSTER_BASE_RANGE + Math.max(0, Math.floor((GRID - 10) / 4));
+    }
+
+    function armAbility() {
+      const player = currentPlayer();
+      if (!game.started || game.paused || isGameOver()) {
+        return;
+      }
+      if (!canUseAbility(player)) {
+        if (player.abilityUsedThisTurn) {
+          infoText.textContent = "Bu tur yeteneğini zaten kullandın.";
+        } else if (player.cooldown > 0) {
+          infoText.textContent = `Yetenek beklemede: ${player.cooldown} tur`;
+        } else {
+          infoText.textContent = "Bu tur aksiyonunu zaten kullandın.";
+        }
+        return;
+      }
+
+      player.abilityArmed = !player.abilityArmed;
+      infoText.textContent = player.abilityArmed
+        ? `${abilityLabelForPlayer(player)} hedefini seç.`
+        : "Yetenek modu kapatıldı.";
+      render();
+    }
+
+    function sameLineAndClear(a, b) {
+      if (a.x !== b.x && a.y !== b.y) {
+        return false;
+      }
+      return !lineIntersectsWall(a.x, a.y, b.x, b.y);
+    }
+
+    function sameDiagonalAndClearInRange(a, b, range) {
+      const dx = Math.abs(a.x - b.x);
+      const dy = Math.abs(a.y - b.y);
+      if (dx === 0 || dx !== dy) {
+        return false;
+      }
+      if (dx > range) {
+        return false;
+      }
+      return !lineIntersectsWall(a.x, a.y, b.x, b.y);
+    }
+
+    function useMinotoDash(player, x, y) {
+      const rawDx = x - player.x;
+      const rawDy = y - player.y;
+      const sameColumn = rawDx === 0 && rawDy !== 0;
+      const sameRow = rawDy === 0 && rawDx !== 0;
+      if (!sameColumn && !sameRow) {
+        infoText.textContent = "Kombo sürüş için aynı satır veya sütunda bir yön seç.";
+        return false;
+      }
+
+      const stepX = Math.sign(rawDx);
+      const stepY = Math.sign(rawDy);
+      let nx = player.x + stepX;
+      let ny = player.y + stepY;
+      let lastX = player.x;
+      let lastY = player.y;
+
+      while (inBounds(nx, ny)) {
+        const hit = getPlayerAt(nx, ny);
+        if (hit && hit.team !== player.team) {
+          applyCombatDamage(player, hit, MINOTO_DASH_DAMAGE, "⚔");
+        }
+        if (!isWallAt(nx, ny)) {
+          lastX = nx;
+          lastY = ny;
+        }
+        nx += stepX;
+        ny += stepY;
+      }
+
+      player.x = lastX;
+      player.y = lastY;
+      player.minotoDashReady = false;
+      checkMapTrapDamage(player);
+      checkCastleAuraDamage(player);
+      if (player.hp <= 0) {
+        return true;
+      }
+      if (!checkDeadlyTrap(player)) {
+        startPowerupCaptureIfAny(player);
+      }
+      return true;
+    }
+
+    function useMinotoAbility(player, x, y) {
+      if (player.minotoDashReady) {
+        return useMinotoDash(player, x, y);
+      }
+
+      const dx = Math.abs(player.x - x);
+      const dy = Math.abs(player.y - y);
+      if (Math.max(dx, dy) !== 1 || !isWallAt(x, y)) {
+        infoText.textContent = "Minoto sadece bitişik duvarı kırabilir.";
+        return false;
+      }
+      game.obstacles = game.obstacles.filter(o => {
+        const destructible = o.type === "wall" || o.type === "castle";
+        return !(destructible && o.x === x && o.y === y);
+      });
+      player.minotoBreaks += 1;
+      if (player.minotoBreaks >= 3) {
+        player.minotoBreaks = 0;
+        player.minotoDashReady = true;
+        infoText.textContent = "Minoto kombo sürüşünü açtı! Aynı satır veya sütunda yön seç.";
+      }
+      createEffect("break", x, y, "#f59e0b", "⛏");
+      return true;
+    }
+
+    function useHunterAbility(player, x, y) {
+      const enemy = enemyPlayer();
+      const range = hunterCastRange();
+      if (!enemy || enemy.x !== x || enemy.y !== y) {
+        infoText.textContent = "Hunter yalnızca rakip karesini hedefleyebilir.";
+        return false;
+      }
+      if (!sameDiagonalAndClearInRange(player, enemy, range)) {
+        infoText.textContent = `Hunter sadece çapraz hatta ve en fazla ${range} kare menzilde vurabilir.`;
+        return false;
+      }
+      applyCombatDamage(player, enemy, HUNTER_SHOT_DAMAGE, "🎯");
+      return true;
+    }
+
+    function useBuilderAbility(player, x, y) {
+      const dx = Math.abs(player.x - x);
+      const dy = Math.abs(player.y - y);
+      const range = builderCastleRange();
+      if (Math.max(dx, dy) > range || !isTileEmptyForUtility(x, y)) {
+        infoText.textContent = `İnşaatçı en fazla ${range} kare uzağa kale kurabilir.`;
+        return false;
+      }
+      game.obstacles.push({ type: "castle", ownerTeam: player.team, x, y, turnsLeft: 3 });
+      if (canRevealSecretPlacement(player.team)) {
+        createEffect("build", x, y, "#22c55e", "🏰");
+      }
+      return true;
+    }
+
+    function usePortalAbility(player, x, y) {
+      if (!isTileEmptyForUtility(x, y)) {
+        infoText.textContent = "Portal boş kareye kurulmalı.";
+        return false;
+      }
+      const dx = Math.abs(player.x - x);
+      const dy = Math.abs(player.y - y);
+      const range = portalCastRange();
+      if (Math.max(dx, dy) > range) {
+        infoText.textContent = `Portal en fazla ${range} kare uzağa kurulabilir.`;
+        return false;
+      }
+      const ownPortals = game.portals[player.team];
+      if (ownPortals.length === 2) {
+        ownPortals.shift();
+      }
+      ownPortals.push({ x, y });
+      if (canRevealSecretPlacement(player.team)) {
+        createEffect("portal", x, y, "#60a5fa", "🌀");
+      }
+      return true;
+    }
+
+    function useFrogAbility(player, x, y) {
+      const dx = Math.abs(player.x - x);
+      const dy = Math.abs(player.y - y);
+      const diagonalJump = dx === dy && dx > 0 && dx <= 2;
+      if (!inBounds(x, y) || !diagonalJump || isWallAt(x, y)) {
+        infoText.textContent = "Kurbağa sadece çapraz yönde en fazla 2 kare sıçrayabilir.";
+        return false;
+      }
+      const occ = getPlayerAt(x, y);
+      if (occ && occ.team === player.team) {
+        infoText.textContent = "Kendi oyuncunun üstüne sıçrayamazsın.";
+        return false;
+      }
+      const originX = player.x;
+      const originY = player.y;
+      player.x = x;
+      player.y = y;
+      if (occ && occ.team !== player.team) {
+        const beforeHp = occ.hp;
+        applyCombatDamage(player, occ, FROG_STOMP_DAMAGE, "🐸");
+        if (beforeHp === occ.hp) {
+          player.x = originX;
+          player.y = originY;
+        }
+      }
+      createEffect("portal", player.x, player.y, "#84cc16", "🐸");
+      return true;
+    }
+
+    function useTricksterAbility(player, x, y) {
+      const dx = Math.abs(player.x - x);
+      const dy = Math.abs(player.y - y);
+      const range = tricksterCastRange();
+      if (player.trapCharges <= 0) {
+        infoText.textContent = "Tuzak hakkın kalmadı.";
+        return false;
+      }
+      if (Math.max(dx, dy) > range || !isTileEmptyForUtility(x, y)) {
+        infoText.textContent = `Tuzak en fazla ${range} kare uzağa kurulabilir.`;
+        return false;
+      }
+      const activeTrap = game.obstacles.some(o => o.type === "deadlyTrap" && o.ownerTeam === player.team);
+      if (activeTrap) {
+        infoText.textContent = "Aynı anda yalnızca 1 aktif ölüm tuzağın olabilir.";
+        return false;
+      }
+      game.obstacles.push({ type: "deadlyTrap", ownerTeam: player.team, x, y });
+      player.trapCharges -= 1;
+      if (canRevealSecretPlacement(player.team)) {
+        createEffect("trap", x, y, "#ef4444", "🎭");
+      }
+      return true;
+    }
+
+    function useGamblerAbility(player, x, y) {
+      const enemy = enemyPlayer();
+      if (!enemy) {
+        infoText.textContent = "Hedef bulunamadı.";
+        return false;
+      }
+      if (!inBounds(x, y)) {
+        infoText.textContent = "Kumarbaz tahmini için geçerli kare seç.";
+        return false;
+      }
+
+      game.predictions.push({
+        ownerTeam: player.team,
+        targetTeam: enemy.team,
+        x,
+        y,
+        turnsLeft: GAMBLER_PREDICTION_TURNS
+      });
+      if (canRevealSecretPlacement(player.team)) {
+        createEffect("portal", x, y, "#a855f7", "🎲");
+      }
+
+      if (!applyShieldLogic(player, enemy)) {
+        enemy.hp = Math.max(0, enemy.hp - 3);
+        if (enemy.hp === 0) {
+          createEffect("kill", enemy.x, enemy.y, teamColor(player.team), "💥");
+        } else {
+          createEffect("trap", enemy.x, enemy.y, "#fb7185", "💥");
+        }
+        infoText.textContent = `Tahmin kuruldu. Kalan: ${GAMBLER_PREDICTION_TURNS} tur. Anında 3 hasar vuruldu.`;
+        return true;
+      }
+
+      infoText.textContent = `Tahmin kuruldu. Kalan: ${GAMBLER_PREDICTION_TURNS} tur. Kalkan hasarı engelledi.`;
+      return true;
+    }
+
+    function executeAbility(player, x, y) {
+      const cfg = CHARACTERS[player.characterId];
+      const handlers = {
+        minoto: () => useMinotoAbility(player, x, y),
+        hunter: () => useHunterAbility(player, x, y),
+        builder: () => useBuilderAbility(player, x, y),
+        portal: () => usePortalAbility(player, x, y),
+        frog: () => useFrogAbility(player, x, y),
+        trickster: () => useTricksterAbility(player, x, y),
+        gambler: () => useGamblerAbility(player, x, y)
+      };
+
+      const handler = handlers[player.characterId];
+      if (!handler) {
+        return false;
+      }
+
+      const success = handler();
+      if (success) {
+        player.pendingCooldown = cfg.cooldown;
+        player.abilityUsedThisTurn = true;
+        player.freeActionAfterAbility = Boolean(cfg.freeActionAfterAbility);
+        playSound("ability");
+      }
+      return success;
+    }
+
+    function drawGrid() {
+      for (let y = 0; y < GRID; y++) {
+        for (let x = 0; x < GRID; x++) {
+          ctx.fillStyle = tileColor(x, y);
+          ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+        }
+      }
+    }
+
+    function visibleSecretOwnerTeam() {
+      return onlineState.enabled ? onlineState.localTeam : game.turn;
+    }
+
+    function canRevealSecretPlacement(ownerTeam) {
+      if (!onlineState.enabled) {
+        return true;
+      }
+      return ownerTeam === onlineState.localTeam;
+    }
+
+    function drawCastleObstacle(obstacle) {
+      const auraX = (obstacle.x - 1) * TILE;
+      const auraY = (obstacle.y - 1) * TILE;
+      ctx.fillStyle = obstacle.ownerTeam === 1 ? "rgba(37,99,235,0.12)" : "rgba(220,38,38,0.12)";
+      ctx.fillRect(auraX, auraY, TILE * 3, TILE * 3);
+
+      ctx.fillStyle = obstacle.ownerTeam === 1 ? "#60a5fa" : "#f87171";
+      ctx.fillRect(obstacle.x * TILE + 7, obstacle.y * TILE + 7, TILE - 14, TILE - 14);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = `bold ${Math.max(10, Math.round(TILE * 0.18))}px sans-serif`;
+      ctx.fillText("🏰", obstacle.x * TILE + TILE / 2, obstacle.y * TILE + TILE / 2 - TILE * 0.05);
+
+      ctx.font = `bold ${Math.max(8, Math.round(TILE * 0.12))}px sans-serif`;
+      const shownTurns = Math.max(1, obstacle.turnsLeft - 1);
+      ctx.fillText(String(shownTurns), obstacle.x * TILE + TILE / 2, obstacle.y * TILE + TILE * 0.2);
+    }
+
+    function drawObstacles() {
+      const visibleTeam = visibleSecretOwnerTeam();
+      for (const obstacle of game.obstacles) {
+        if (obstacle.type === "wall") {
+          ctx.fillStyle = "#64748b";
+          ctx.fillRect(obstacle.x * TILE + 6, obstacle.y * TILE + 6, TILE - 12, TILE - 12);
+          continue;
+        }
+        if (obstacle.type === "castle") {
+          if (obstacle.ownerTeam !== visibleTeam) {
+            continue;
+          }
+          drawCastleObstacle(obstacle);
+          continue;
+        }
+        if (obstacle.type === "deadlyTrap" && obstacle.ownerTeam !== visibleTeam) {
+          continue;
+        }
+        ctx.fillStyle = obstacle.type === "deadlyTrap" ? "rgba(239,68,68,0.3)" : "rgba(249,115,22,0.32)";
+        ctx.beginPath();
+        ctx.arc(obstacle.x * TILE + TILE / 2, obstacle.y * TILE + TILE / 2, TILE * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawPortals() {
+      const visibleTeam = onlineState.enabled ? onlineState.localTeam : game.turn;
+      for (const team of [1, 2]) {
+        if (team !== visibleTeam) {
+          continue;
+        }
+        const portals = game.portals[team];
+        for (const portal of portals) {
+          const cx = portal.x * TILE + TILE / 2;
+          const cy = portal.y * TILE + TILE / 2;
+          ctx.strokeStyle = teamLightColor(team);
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(cx, cy, TILE * 0.22, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.fillStyle = "#ffffff";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.font = `bold ${Math.max(11, Math.round(TILE * 0.2))}px sans-serif`;
+          ctx.fillText("🌀", cx, cy + 0.5);
+        }
+      }
+    }
+
+    function drawPredictions() {
+      const visibleTeam = onlineState.enabled ? onlineState.localTeam : game.turn;
+      for (const prediction of game.predictions) {
+        if (prediction.ownerTeam !== visibleTeam) {
+          continue;
+        }
+        const cx = prediction.x * TILE + TILE / 2;
+        const cy = prediction.y * TILE + TILE / 2;
+        const ownerColor = teamLightColor(prediction.ownerTeam);
+
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = ownerColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(prediction.x * TILE + 4, prediction.y * TILE + 4, TILE - 8, TILE - 8);
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `bold ${Math.max(10, Math.round(TILE * 0.18))}px sans-serif`;
+        ctx.fillText("🎲", cx, cy - TILE * 0.08);
+
+        ctx.fillStyle = ownerColor;
+        ctx.font = `bold ${Math.max(9, Math.round(TILE * 0.14))}px sans-serif`;
+        ctx.fillText(String(prediction.turnsLeft), cx, cy + TILE * 0.15);
+        ctx.restore();
+      }
+    }
+
+    function drawPowerups() {
+      for (const p of game.powerups) {
+        const cx = p.x * TILE + TILE / 2;
+        const cy = p.y * TILE + TILE / 2;
+        const r = TILE * 0.3;
+        const meta = POWERUP_META[p.type];
+        const glow = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 1.6);
+        glow.addColorStop(0, meta.glow);
+        glow.addColorStop(1, "transparent");
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = meta.color;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `bold ${Math.round(TILE * 0.2)}px sans-serif`;
+        ctx.fillText(meta.symbol, cx, cy);
+      }
+    }
+
+    function drawPendingPowerups() {
+      for (const pending of game.pendingPowerups) {
+        const cx = pending.x * TILE + TILE / 2;
+        const cy = pending.y * TILE + TILE / 2;
+        const meta = POWERUP_META[pending.type];
+
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = meta.color;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(pending.x * TILE + 4, pending.y * TILE + 4, TILE - 8, TILE - 8);
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = "rgba(248,250,252,0.92)";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `bold ${Math.max(9, Math.round(TILE * 0.14))}px sans-serif`;
+        ctx.fillText(`+${pending.turnsLeft}`, cx, cy - TILE * 0.1);
+
+        ctx.fillStyle = meta.color;
+        ctx.font = `bold ${Math.max(10, Math.round(TILE * 0.18))}px sans-serif`;
+        ctx.fillText(meta.symbol, cx, cy + TILE * 0.15);
+        ctx.restore();
+      }
+    }
+
+    function drawCoordinates() {
+      if (!viewState.showCoords) {
+        return;
+      }
+      ctx.save();
+      ctx.fillStyle = "rgba(226,232,240,0.62)";
+      ctx.font = `bold ${Math.max(8, Math.round(TILE * 0.15))}px sans-serif`;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      for (let y = 0; y < GRID; y++) {
+        for (let x = 0; x < GRID; x++) {
+          const label = `${String.fromCodePoint(65 + (x % 26))}${y + 1}`;
+          ctx.fillText(label, x * TILE + 3, y * TILE + 2);
+        }
+      }
+      ctx.restore();
+    }
+
+    function toggleDanger() {
+      viewState.showDanger = !viewState.showDanger;
+      updateAccessibilityButtons();
+      render();
+    }
+
+    function toggleCoords() {
+      viewState.showCoords = !viewState.showCoords;
+      updateAccessibilityButtons();
+      render();
+    }
+
+    function toggleColorblind() {
+      viewState.colorblindMode = !viewState.colorblindMode;
+      updateAccessibilityButtons();
+      render();
+    }
+
+    function handleGlobalKey(key) {
+      if (key === "h") {
+        setHelpVisible(!helpOverlay.classList.contains("visible"));
+        return true;
+      }
+      if (key === "g") {
+        toggleDanger();
+        return true;
+      }
+      if (key === "c") {
+        toggleCoords();
+        return true;
+      }
+      if (key === "b") {
+        toggleColorblind();
+        return true;
+      }
+      return false;
+    }
+
+    function handleEscapeKey() {
+      if (helpOverlay.classList.contains("visible")) {
+        setHelpVisible(false);
+        return;
+      }
+      const player = currentPlayer();
+      if (player && player.abilityArmed) {
+        player.abilityArmed = false;
+        infoText.textContent = "Yetenek modu kapatıldı.";
+        render();
+      }
+    }
+
+    function handleInGameKey(e, key) {
+      if (key === " " || key === "spacebar") {
+        e.preventDefault();
+        dispatchLocalAction({ type: "ability" });
+        return;
+      }
+      if (key === "t") {
+        dispatchLocalAction({ type: "skip" });
+        return;
+      }
+      if (key === "p") {
+        togglePause();
+        return;
+      }
+      if (key === "m") {
+        toggleSound();
+        return;
+      }
+      if (key === "r") {
+        restart();
+      }
+    }
+
+    function drawDangerOverlay() {
+      if (!viewState.showDanger || !game.started || game.paused || isGameOver()) {
+        return;
+      }
+      const enemy = enemyPlayer();
+      if (!enemy) {
+        return;
+      }
+      const threat = new Set();
+      for (const tile of movableTiles(enemy)) {
+        threat.add(`${tile.x},${tile.y}`);
+      }
+
+      ctx.save();
+      for (const key of threat) {
+        const [xText, yText] = key.split(",");
+        const x = Number(xText);
+        const y = Number(yText);
+        ctx.fillStyle = "rgba(239,68,68,0.2)";
+        ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+      }
+      ctx.restore();
+    }
+
+    function drawMoveHints() {
+      const player = currentPlayer();
+      if (game.started && !game.paused && !isGameOver() && player && !player.actionDone && !player.abilityArmed) {
+        for (const tile of movableTiles(player)) {
+          ctx.fillStyle = "rgba(34,197,94,0.24)";
+          ctx.fillRect(tile.x * TILE, tile.y * TILE, TILE, TILE);
+        }
+      }
+    }
+
+    function drawGridLines() {
+      drawEffect();
+
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      for (let i = 0; i <= GRID; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * TILE, 0);
+        ctx.lineTo(i * TILE, canvas.height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, i * TILE);
+        ctx.lineTo(canvas.width, i * TILE);
+        ctx.stroke();
+      }
+    }
+
+    function drawBoard() {
+      drawGrid();
+      drawObstacles();
+      drawPortals();
+      drawPredictions();
+      drawPendingPowerups();
+      drawPowerups();
+      drawMoveHints();
+      drawDangerOverlay();
+      drawCoordinates();
+      drawGridLines();
+    }
+
+    function drawPlayers() {
+      for (const p of game.players) {
+        if (p.hp <= 0) {
+          continue;
+        }
+        const cx = p.x * TILE + TILE / 2;
+        const cy = p.y * TILE + TILE / 2;
+        const character = CHARACTERS[p.characterId];
+        ctx.fillStyle = teamColor(p.team);
+        ctx.beginPath();
+        ctx.arc(cx, cy, TILE * 0.28, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (p.team === game.turn) {
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(cx, cy, TILE * 0.34, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        ctx.strokeStyle = character.accent || "rgba(255,255,255,0.6)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, TILE * 0.24, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Character symbol in center, HP in a small corner badge.
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `bold ${Math.max(12, Math.round(TILE * 0.24))}px sans-serif`;
+        ctx.fillText(character.symbol || "•", cx, cy + 1);
+
+        const hpR = TILE * 0.13;
+        const hpX = cx + TILE * 0.2;
+        const hpY = cy - TILE * 0.2;
+        ctx.beginPath();
+        ctx.fillStyle = "#0f172a";
+        ctx.arc(hpX, hpY, hpR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.55)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "#ffffff";
+        ctx.font = `bold ${Math.max(9, Math.round(TILE * 0.15))}px sans-serif`;
+        ctx.fillText(String(p.hp), hpX, hpY + 0.5);
+
+        if (p.pendingPowerup) {
+          ctx.fillStyle = "#f8fafc";
+          ctx.font = `bold ${Math.max(9, Math.round(TILE * 0.16))}px sans-serif`;
+          ctx.fillText("⏳", cx - TILE * 0.21, cy - TILE * 0.2);
+        }
+      }
+    }
+
+    function drawVictoryEffects() {
+      if (!isGameOver()) {
+        return;
+      }
+
+      const team = game.winnerTeam || winnerTeam();
+      if (!team) {
+        return;
+      }
+
+      const winner = playerByTeam(team);
+      if (!winner || winner.hp <= 0) {
+        return;
+      }
+
+      const cx = winner.x * TILE + TILE / 2;
+      const cy = winner.y * TILE + TILE / 2;
+      const pulse = (Math.sin(performance.now() / 180) + 1) / 2;
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = teamLightColor(team);
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.45 + pulse * 0.35;
+      ctx.beginPath();
+      ctx.arc(cx, cy, TILE * (0.42 + pulse * 0.22), 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = "rgba(15,23,42,0.7)";
+      ctx.fillRect(10, 8, Math.min(canvas.width - 20, 260), 30);
+      ctx.fillStyle = "#f8fafc";
+      ctx.font = `bold ${Math.max(13, Math.round(TILE * 0.28))}px sans-serif`;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`${winner.name} kazandı!`, 18, 23);
+      ctx.restore();
+    }
+
+    function updateAbilityButton() {
+      const p = currentPlayer();
+      if (!p || !game.started) {
+        abilityBtn.textContent = "Yetenek Kullan";
+        return;
+      }
+      const abilityLabel = abilityLabelForPlayer(p);
+      const cd = p.cooldown > 0 ? ` (CD ${p.cooldown})` : "";
+      const bonus = CHARACTERS[p.characterId].freeActionAfterAbility ? " + hamle" : "";
+      abilityBtn.textContent = `${p.abilityArmed ? "Yetenek Modu Açık" : abilityLabel}${bonus}${cd}`;
+    }
+
+    function render() {
+      drawBoard();
+      drawPlayers();
+      drawVictoryEffects();
+
+      const p1 = playerByTeam(1);
+      const p2 = playerByTeam(2);
+      const active = currentPlayer();
+
+      turnBadge.textContent = active ? active.name : "-";
+      turnBadge.className = "badge " + (game.turn === 1 ? "p1" : "p2");
+
+      document.getElementById("p1hp").textContent = p1.hp;
+      document.getElementById("p1bar").style.width = `${Math.max(0, (p1.hp / MAX_HP) * 100)}%`;
+      document.getElementById("p1powers").innerHTML = powerSummaryHTML(p1);
+
+      document.getElementById("p2hp").textContent = p2.hp;
+      document.getElementById("p2bar").style.width = `${Math.max(0, (p2.hp / MAX_HP) * 100)}%`;
+      document.getElementById("p2powers").innerHTML = powerSummaryHTML(p2);
+
+      registerWinnerIfNeeded();
+      updateShareResultButton();
+
+      updateAbilityButton();
+      updateSmartTip();
+    }
+
+    function restart() {
+      if (botState.timer) {
+        clearTimeout(botState.timer);
+        botState.timer = 0;
+      }
+      botState.thinking = false;
+      game = newGameState();
+      game.started = true;
+      game.paused = false;
+      trackLocalStat("starts");
+      setMenuVisible(false);
+      setHelpVisible(false);
+      pauseBtn.textContent = "Duraklat";
+      lastLoggedInfo = "";
+      resetCombatLog();
+      infoText.textContent = "Maç başladı. Bu tur hareket ya da yetenek seç.";
+      updateShareResultButton();
+      updateMatchSummary();
+      render();
+      scheduleBotTurnIfNeeded();
+    }
+
+    function returnToStartMenu() {
+      closeOnlineConnection();
+      onlineState.enabled = false;
+      botState.enabled = false;
+      botState.thinking = false;
+      if (botState.timer) {
+        clearTimeout(botState.timer);
+        botState.timer = 0;
+      }
+      setNetworkStatus(defaultNetworkStatusText());
+      game = newGameState();
+      game.started = false;
+      game.paused = false;
+      setMenuVisible(true);
+      setHelpVisible(false);
+      pauseBtn.textContent = "Duraklat";
+      lastLoggedInfo = "";
+      resetCombatLog();
+      infoText.textContent = "Oyununu seç ve yeşil karelere hareket et.";
+      updateShareResultButton();
+      updateMatchSummary();
+      render();
+    }
+
+    function togglePause() {
+      if (!game.started || isGameOver()) {
+        return;
+      }
+      game.paused = !game.paused;
+      pauseBtn.textContent = game.paused ? "Devam Et" : "Duraklat";
+      render();
+      scheduleBotTurnIfNeeded();
+    }
+
+    function handleMove(player, x, y) {
+      const canMove = movableTiles(player).some(m => m.x === x && m.y === y);
+      if (!canMove) {
+        infoText.textContent = "Geçersiz hareket.";
+        return false;
+      }
+
+      const originX = player.x;
+      const originY = player.y;
+      player.x = x;
+      player.y = y;
+      playSound("move");
+
+      applyPortalTransit(player);
+
+      checkMapTrapDamage(player);
+      checkCastleAuraDamage(player);
+      if (player.hp <= 0) {
+        return true;
+      }
+
+      if (checkDeadlyTrap(player)) {
+        return true;
+      }
+
+      const enemy = enemyPlayer();
+      if (enemy && player.x === enemy.x && player.y === enemy.y) {
+        if (applyShieldLogic(player, enemy)) {
+          player.x = originX;
+          player.y = originY;
+          return true;
+        }
+        enemy.hp = Math.max(0, enemy.hp - CONTACT_DAMAGE);
+        infoText.textContent = `${player.name} rakibe temas etti! -${CONTACT_DAMAGE} can`;
+        if (enemy.hp === 0) {
+          createEffect("kill", enemy.x, enemy.y, teamColor(player.team), "⚔");
+          playSound("kill");
+        } else {
+          createEffect("trap", enemy.x, enemy.y, teamColor(player.team), "⚔");
+        }
+      }
+
+      startPowerupCaptureIfAny(player);
+
+      return true;
+    }
+
+    function handleAbility(player, x, y) {
+      if (!canUseAbility(player)) {
+        if (player.abilityUsedThisTurn) {
+          infoText.textContent = "Bu tur yeteneğini zaten kullandın.";
+        } else if (player.cooldown > 0) {
+          infoText.textContent = `Yetenek beklemede: ${player.cooldown} tur`;
+        } else {
+          infoText.textContent = "Bu tur aksiyonunu zaten kullandın.";
+        }
+        return false;
+      }
+      return executeAbility(player, x, y);
+    }
+
+    function handleBoardAction(x, y) {
+      if (!game.started || game.paused || isGameOver()) {
+        return;
+      }
+
+      const player = currentPlayer();
+      if (player.actionDone) {
+        infoText.textContent = "Bu tur aksiyonunu kullandın.";
+        return;
+      }
+
+      if (player.freeActionAfterAbility && !player.abilityArmed) {
+        const success = handleMove(player, x, y);
+        if (!success) {
+          render();
+          return;
+        }
+
+        player.actionDone = true;
+        player.freeActionAfterAbility = false;
+        player.abilityArmed = false;
+        endTurn();
+        return;
+      }
+
+      const success = player.abilityArmed
+        ? handleAbility(player, x, y)
+        : handleMove(player, x, y);
+
+      if (!success) {
+        render();
+        return;
+      }
+
+      if (player.abilityArmed && player.freeActionAfterAbility) {
+        player.abilityArmed = false;
+        render();
+        return;
+      }
+
+      player.actionDone = true;
+      player.abilityArmed = false;
+      endTurn();
+    }
+
+    function skipTurn() {
+      if (!game.started || game.paused || isGameOver()) {
+        return;
+      }
+      const player = currentPlayer();
+      if (!player || player.actionDone) {
+        return;
+      }
+      player.actionDone = true;
+      player.abilityArmed = false;
+      infoText.textContent = `${player.name} turu geçti.`;
+      endTurn();
+    }
+
+    canvas.addEventListener("pointerdown", e => {
+      ensureAudioContext();
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = Math.floor(((e.clientX - rect.left) * scaleX) / TILE);
+      const y = Math.floor(((e.clientY - rect.top) * scaleY) / TILE);
+      dispatchLocalAction({ type: "board", x, y });
+    });
+
+    startBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      playSound("button");
+      startConfiguredGame();
+    });
+    pauseBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      playSound("button");
+      togglePause();
+    });
+    resetBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      playSound("button");
+      returnToStartMenu();
+    });
+    abilityBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      playSound("button");
+      dispatchLocalAction({ type: "ability" });
+    });
+    skipTurnBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      playSound("button");
+      dispatchLocalAction({ type: "skip" });
+    });
+    soundBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      toggleSound();
+    });
+    dangerBtn.addEventListener("click", () => {
+      toggleDanger();
+    });
+    coordsBtn.addEventListener("click", () => {
+      toggleCoords();
+    });
+    colorblindBtn.addEventListener("click", () => {
+      toggleColorblind();
+    });
+    helpBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      playSound("button");
+      setHelpVisible(true);
+    });
+    shareResultBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      playSound("button");
+      shareResult();
+    });
+    closeHelpBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      playSound("button");
+      setHelpVisible(false);
+    });
+    helpOverlay.addEventListener("click", e => {
+      if (e.target === helpOverlay) {
+        setHelpVisible(false);
+      }
+    });
+    p1CharacterSelect.addEventListener("change", updateCharacterTips);
+    p2CharacterSelect.addEventListener("change", updateCharacterTips);
+    gameModeSelect.addEventListener("change", updateOnlineConfigVisibility);
+    onlineRoleSelect.addEventListener("change", () => {
+      if (onlineRoleSelect.value === "host" && !roomCodeInput.value.trim()) {
+        roomCodeInput.value = sanitizeRoomCode(`CANCAN${Math.floor(Math.random() * 900 + 100)}`);
+      }
+    });
+    copyInviteBtn.addEventListener("click", () => {
+      copyInviteLink();
+    });
+
+    document.addEventListener("keydown", e => {
+      if (e.repeat) {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+      if (handleGlobalKey(key)) {
+        return;
+      }
+      if (key === "escape") {
+        handleEscapeKey();
+        return;
+      }
+
+      if (!game.started || helpOverlay.classList.contains("visible")) {
+        return;
+      }
+      handleInGameKey(e, key);
+    });
+
+    function gameLoop(timestamp) {
+      const dt = lastFrameTime ? (timestamp - lastFrameTime) / 1000 : 0;
+      lastFrameTime = timestamp;
+      if (game && game.started && !game.paused) {
+        updateEffect(dt);
+      }
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    updatePowerupLegend();
+    updateCharacterTips();
+    loadInitialWsUrl();
+    updateOnlineConfigVisibility();
+    setNetworkStatus(defaultNetworkStatusText());
+    applyOnlinePresetFromQuery();
+    observeInfoTextForLog();
+    resetCombatLog();
+    setHelpVisible(false);
+    updateAccessibilityButtons();
+    updateWinCounter();
+    trackLocalStat("visits");
+    game = newGameState();
+    updateShareResultButton();
+    updateMatchSummary();
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
