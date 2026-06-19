@@ -3,12 +3,40 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="CanCan 2D Strateji Oyunu'nu ücretsiz online oyna. Mavi ve Kırmızı oyuncularla 10x10 haritada güçleri topla, taktik kur ve rakibini yen." />
+  <meta name="description" content="CanCan 2D, tarayıcıda oynanan ücretsiz çevrimiçi 2D strateji oyunu. Oda kur, arkadaşına davet linki gönder, 10x10 haritada taktik kur ve rakibini yen." />
+  <meta name="keywords" content="CanCan 2D, strateji oyunu, online strateji oyunu, tarayıcı oyunu, ücretsiz oyun, 2D oyun, sıra tabanlı oyun" />
   <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#302b63" />
+  <link rel="canonical" href="https://cancan-ten.vercel.app/" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="CanCan 2D Strateji Oyunu" />
-  <meta property="og:description" content="Ücretsiz online 2D strateji oyunu: güçleri topla, engelleri aş, rakibini alt et." />
-  <title>Cancan — 2D Strateji</title>
+  <meta property="og:site_name" content="CanCan 2D" />
+  <meta property="og:title" content="CanCan 2D - Ücretsiz Çevrimiçi Strateji Oyunu" />
+  <meta property="og:description" content="Arkadaşınla online oda kur, güçleri topla, engelleri aş ve 10x10 haritada rakibini alt et." />
+  <meta property="og:url" content="https://cancan-ten.vercel.app/" />
+  <meta property="og:image" content="https://cancan-ten.vercel.app/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:locale" content="tr_TR" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="CanCan 2D - Ücretsiz Çevrimiçi Strateji Oyunu" />
+  <meta name="twitter:description" content="Tarayıcıdan ücretsiz oyna, oda linkini paylaş ve arkadaşınla strateji mücadelesine gir." />
+  <meta name="twitter:image" content="https://cancan-ten.vercel.app/og-image.png" />
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "VideoGame",
+      "name": "CanCan 2D",
+      "description": "Tarayıcıda oynanan ücretsiz çevrimiçi 2D strateji oyunu.",
+      "url": "https://cancan-ten.vercel.app/",
+      "image": "https://cancan-ten.vercel.app/og-image.png",
+      "applicationCategory": "Game",
+      "operatingSystem": "Web",
+      "gamePlatform": "Web browser",
+      "genre": "Strategy",
+      "inLanguage": "tr"
+    }
+  </script>
+  <title>CanCan 2D - Ücretsiz Çevrimiçi Strateji Oyunu</title>
   <style>
     :root {
       --bg-from: #964848;
@@ -310,6 +338,69 @@
       border: 1px solid var(--surface-border);
     }
 
+    .match-summary {
+      display: grid;
+      gap: 8px;
+      margin: 0 0 14px;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: var(--radius-md);
+      background: rgba(15, 23, 42, 0.62);
+    }
+
+    .match-summary.hidden {
+      display: none;
+    }
+
+    .match-summary-title {
+      font-size: 0.78rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #93c5fd;
+    }
+
+    .match-summary-body {
+      color: #f8fafc;
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .match-summary-meta {
+      color: #94a3b8;
+      font-size: 0.76rem;
+      line-height: 1.35;
+    }
+
+    .local-stats {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 6px;
+      margin: 0 0 14px;
+      padding: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--radius-md);
+      background: rgba(255,255,255,0.035);
+    }
+
+    .local-stat {
+      min-width: 0;
+      text-align: center;
+    }
+
+    .local-stat strong {
+      display: block;
+      color: #f8fafc;
+      font-size: 0.92rem;
+    }
+
+    .local-stat span {
+      display: block;
+      color: #94a3b8;
+      font-size: 0.62rem;
+      line-height: 1.2;
+    }
+
     .stat-block {
       display: flex;
       flex-direction: column;
@@ -409,6 +500,18 @@
 
     button:active {
       transform: translateY(0);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+      transform: none;
+      box-shadow: none;
+    }
+
+    button:disabled:hover {
+      transform: none;
+      box-shadow: none;
     }
 
     .hint {
@@ -639,6 +742,21 @@
 
       <div id="infoText">Oyununu seç ve yeşil karelere hareket et.</div>
 
+      <div id="matchSummary" class="match-summary hidden" aria-live="polite">
+        <div class="match-summary-title">Maç Sonucu</div>
+        <div id="matchSummaryBody" class="match-summary-body"></div>
+        <div id="matchSummaryMeta" class="match-summary-meta"></div>
+      </div>
+
+      <div class="local-stats" aria-label="Bu cihazdaki oyun istatistikleri">
+        <div class="local-stat"><strong id="visitCount">0</strong><span>Ziyaret</span></div>
+        <div class="local-stat"><strong id="startCount">0</strong><span>Başlama</span></div>
+        <div class="local-stat"><strong id="botStartCount">0</strong><span>Bot</span></div>
+        <div class="local-stat"><strong id="onlineStartCount">0</strong><span>Online</span></div>
+        <div class="local-stat"><strong id="finishCount">0</strong><span>Bitiş</span></div>
+        <div class="local-stat"><strong id="shareCount">0</strong><span>Paylaşım</span></div>
+      </div>
+
       <div class="combat-log">
         <div class="combat-log-title">Son Olaylar</div>
         <ul id="combatLog" class="combat-log-list">
@@ -672,6 +790,8 @@
         <button id="soundBtn" class="button-secondary">Ses: Açık</button>
         <button id="pauseBtn" class="button-secondary">Duraklat</button>
         <button id="helpBtn" class="button-secondary">Yardım</button>
+        <button id="copyStatsBtn" class="button-secondary">İstatistik Kopyala</button>
+        <button id="shareResultBtn" class="button-secondary" disabled>Sonucu Paylaş</button>
         <button id="resetBtn">Yeniden Başlat</button>
       </div>
 
@@ -692,6 +812,7 @@
         <div class="menu-pick">
           <label for="gameMode">Oyun Modu</label>
           <select id="gameMode">
+            <option value="bot">Bot'a Karşı</option>
             <option value="local">Yerel (Aynı Cihaz)</option>
             <option value="online">Online (Hazırlık)</option>
           </select>
@@ -788,6 +909,15 @@
     const ctx = canvas.getContext("2d");
     const turnBadge = document.getElementById("turnBadge");
     const infoText = document.getElementById("infoText");
+    const matchSummary = document.getElementById("matchSummary");
+    const matchSummaryBody = document.getElementById("matchSummaryBody");
+    const matchSummaryMeta = document.getElementById("matchSummaryMeta");
+    const visitCountEl = document.getElementById("visitCount");
+    const startCountEl = document.getElementById("startCount");
+    const botStartCountEl = document.getElementById("botStartCount");
+    const onlineStartCountEl = document.getElementById("onlineStartCount");
+    const finishCountEl = document.getElementById("finishCount");
+    const shareCountEl = document.getElementById("shareCount");
     const combatLog = document.getElementById("combatLog");
     const charTip = document.getElementById("charTip");
     const menuOverlay = document.getElementById("menuOverlay");
@@ -800,6 +930,8 @@
     const coordsBtn = document.getElementById("coordsBtn");
     const colorblindBtn = document.getElementById("colorblindBtn");
     const helpBtn = document.getElementById("helpBtn");
+    const copyStatsBtn = document.getElementById("copyStatsBtn");
+    const shareResultBtn = document.getElementById("shareResultBtn");
     const closeHelpBtn = document.getElementById("closeHelpBtn");
     const soundBtn = document.getElementById("soundBtn");
     const helpOverlay = document.getElementById("helpOverlay");
@@ -947,6 +1079,96 @@
       clientId: `c_${Math.random().toString(36).slice(2, 10)}`
     };
 
+    const botState = {
+      enabled: false,
+      team: 2,
+      thinking: false,
+      timer: 0
+    };
+
+    const ANALYTICS_KEY = "cancan_local_stats_v1";
+    const localStats = loadLocalStats();
+
+    function loadLocalStats() {
+      const fallback = {
+        visits: 0,
+        starts: 0,
+        botStarts: 0,
+        localStarts: 0,
+        onlineStarts: 0,
+        finishes: 0,
+        shares: 0
+      };
+      try {
+        return { ...fallback, ...JSON.parse(localStorage.getItem(ANALYTICS_KEY) || "{}") };
+      } catch {
+        return fallback;
+      }
+    }
+
+    function saveLocalStats() {
+      try {
+        localStorage.setItem(ANALYTICS_KEY, JSON.stringify(localStats));
+      } catch (err) {
+        console.warn("Yerel istatistik kaydedilemedi:", err);
+      }
+    }
+
+    function renderLocalStats() {
+      visitCountEl.textContent = String(localStats.visits);
+      startCountEl.textContent = String(localStats.starts);
+      botStartCountEl.textContent = String(localStats.botStarts);
+      onlineStartCountEl.textContent = String(localStats.onlineStarts);
+      finishCountEl.textContent = String(localStats.finishes);
+      shareCountEl.textContent = String(localStats.shares);
+    }
+
+    function trackLocalStat(key) {
+      localStats[key] = (localStats[key] || 0) + 1;
+      saveLocalStats();
+      renderLocalStats();
+    }
+
+    function trackGameStartForCurrentMode() {
+      trackLocalStat("starts");
+      if (isBotModeSelected()) {
+        trackLocalStat("botStarts");
+        return;
+      }
+      if (isOnlineModeSelected()) {
+        trackLocalStat("onlineStarts");
+        return;
+      }
+      trackLocalStat("localStarts");
+    }
+
+    function buildStatsText() {
+      return [
+        "CanCan 2D yerel istatistikleri",
+        `Ziyaret: ${localStats.visits}`,
+        `Başlatılan maç: ${localStats.starts}`,
+        `Bot modu: ${localStats.botStarts}`,
+        `Yerel mod: ${localStats.localStarts}`,
+        `Online mod: ${localStats.onlineStarts}`,
+        `Biten maç: ${localStats.finishes}`,
+        `Paylaşım: ${localStats.shares}`
+      ].join("\n");
+    }
+
+    async function copyLocalStats() {
+      const text = buildStatsText();
+      try {
+        if (globalThis.navigator?.clipboard?.writeText) {
+          await globalThis.navigator.clipboard.writeText(text);
+          infoText.textContent = "Yerel istatistikler kopyalandı.";
+          return;
+        }
+      } catch (err) {
+        console.warn("İstatistik kopyalanamadı:", err);
+      }
+      globalThis.prompt("Yerel istatistikleri kopyala:", text);
+    }
+
     const PUBLIC_WS_FALLBACK = "wss://cancan-online-ws.onrender.com";
 
     function sanitizeRoomCode(raw) {
@@ -1010,7 +1232,7 @@
       params.set("room", roomCode);
       params.set("ws", wsUrl);
 
-      return `${globalThis.location.origin}${globalThis.location.pathname}?${params.toString()}`;
+      return `${globalThis.location.origin}/?${params.toString()}`;
     }
 
     async function copyInviteLink() {
@@ -1088,6 +1310,10 @@
 
     function isOnlineModeSelected() {
       return gameModeSelect.value === "online";
+    }
+
+    function isBotModeSelected() {
+      return gameModeSelect.value === "bot";
     }
 
     function updateOnlineConfigVisibility() {
@@ -1172,7 +1398,8 @@
 
     function canControlCurrentTurnLocally() {
       if (!onlineState.enabled) {
-        return true;
+        const player = currentPlayer();
+        return !(botState.enabled && player && player.team === botState.team);
       }
       const player = currentPlayer();
       return Boolean(player) && player.team === onlineState.localTeam;
@@ -1313,10 +1540,17 @@
       if (!isOnlineModeSelected()) {
         onlineState.enabled = false;
         closeOnlineConnection();
+        botState.enabled = isBotModeSelected();
+        botState.thinking = false;
+        if (botState.timer) {
+          clearTimeout(botState.timer);
+          botState.timer = 0;
+        }
         restart();
         return;
       }
 
+      botState.enabled = false;
       onlineState.enabled = true;
       onlineState.role = onlineRoleSelect.value;
       onlineState.localTeam = onlineState.role === "host" ? 1 : 2;
@@ -1341,6 +1575,7 @@
         infoText.textContent = `Online host açıldı. Oda: ${onlineState.roomCode}`;
         broadcastSnapshotIfHost("host-start");
       } else {
+        trackGameStartForCurrentMode();
         enterOnlineJoinWaiting();
         infoText.textContent = `Online odaya katıldın: ${onlineState.roomCode}`;
       }
@@ -2050,6 +2285,76 @@
       return winner ? winner.name : "Berabere";
     }
 
+    function canonicalGameUrl() {
+      const origin = globalThis.location.origin;
+      if (!origin || origin === "null") {
+        return "https://cancan-ten.vercel.app/";
+      }
+      return `${origin}/`;
+    }
+
+    function buildResultShareText() {
+      const team = game.winnerTeam || winnerTeam();
+      const result = team ? `${playerByTeam(team)?.name || "Kazanan"} kazandı` : "Maç berabere bitti";
+      const score = `Mavi ${winStats[1]} - ${winStats[2]} Kırmızı`;
+      const mode = isBotModeSelected() ? "Bot'a Karşı" : (gameModeSelect.value === "online" ? "Online" : "Yerel");
+      const mapName = mapSelect.selectedOptions[0]?.textContent || "CanCan haritası";
+      return `CanCan 2D\n${result}\nSkor: ${score}\nMod: ${mode} | Harita: ${mapName}\nSen de oyna: ${canonicalGameUrl()}`;
+    }
+
+    async function shareResult() {
+      if (!isGameOver()) {
+        infoText.textContent = "Sonuç paylaşmak için maçın bitmesini bekle.";
+        return;
+      }
+
+      const title = "CanCan 2D maç sonucu";
+      const text = buildResultShareText();
+      const url = canonicalGameUrl();
+
+      try {
+        if (globalThis.navigator?.share) {
+          await globalThis.navigator.share({ title, text, url });
+          trackLocalStat("shares");
+          return;
+        }
+        if (globalThis.navigator?.clipboard?.writeText) {
+          await globalThis.navigator.clipboard.writeText(text);
+          trackLocalStat("shares");
+          infoText.textContent = "Maç sonucu kopyalandı. İstediğin yerde paylaşabilirsin.";
+          return;
+        }
+      } catch (err) {
+        console.warn("Sonuç paylaşılamadı:", err);
+      }
+
+      globalThis.prompt("Maç sonucunu kopyala:", text);
+      trackLocalStat("shares");
+    }
+
+    function updateShareResultButton() {
+      shareResultBtn.disabled = !isGameOver();
+    }
+
+    function setMatchSummaryVisible(visible) {
+      matchSummary.classList.toggle("hidden", !visible);
+    }
+
+    function updateMatchSummary() {
+      if (!isGameOver()) {
+        setMatchSummaryVisible(false);
+        return;
+      }
+
+      const team = game.winnerTeam || winnerTeam();
+      const result = team ? `${playerByTeam(team)?.name || "Kazanan"} kazandı` : "Maç berabere";
+      const mode = isBotModeSelected() ? "Bot'a Karşı" : (isOnlineModeSelected() ? "Online" : "Yerel");
+      const mapName = mapSelect.selectedOptions[0]?.textContent || "Harita";
+      matchSummaryBody.textContent = result;
+      matchSummaryMeta.textContent = `${mode} | ${mapName} | Skor: Mavi ${winStats[1]} - ${winStats[2]} Kırmızı`;
+      setMatchSummaryVisible(true);
+    }
+
     function updateWinCounter() {
       p1WinsEl.textContent = String(winStats[1]);
       p2WinsEl.textContent = String(winStats[2]);
@@ -2076,6 +2381,9 @@
         addCombatLog("Maç berabere bitti.");
       }
       updateWinCounter();
+      updateShareResultButton();
+      updateMatchSummary();
+      trackLocalStat("finishes");
     }
 
     function applyPowerupToPlayer(player, picked) {
@@ -2397,6 +2705,82 @@
       }
       startNextTurn();
       render();
+      scheduleBotTurnIfNeeded();
+    }
+
+    function isBotTurn() {
+      const player = currentPlayer();
+      return Boolean(botState.enabled && game.started && !game.paused && !isGameOver() && player && player.team === botState.team);
+    }
+
+    function chooseBotMove(player) {
+      const moves = movableTiles(player);
+      if (!moves.length) {
+        return null;
+      }
+
+      const enemy = game.players.find(p => p.team !== player.team);
+      const scoreMove = move => {
+        let score = 0;
+        if (enemy) {
+          const canHitEnemy = move.x === enemy.x && move.y === enemy.y;
+          score += canHitEnemy ? 1000 : 0;
+          score -= distanceManhattan(move.x, move.y, enemy.x, enemy.y) * 8;
+        }
+
+        const powerup = game.powerups.find(p => p.x === move.x && p.y === move.y);
+        if (powerup) {
+          score += powerup.type === "heal" && player.hp >= MAX_HP ? 8 : 45;
+        }
+
+        const trap = getObstacleAt(move.x, move.y);
+        if (trap?.type === "trap" || trap?.type === "deadlyTrap") {
+          score -= 80;
+        }
+        if (trap?.type === "castle" && trap.ownerTeam !== player.team) {
+          score -= 30;
+        }
+
+        score += Math.random() * 4;
+        return score;
+      };
+
+      return moves
+        .map(move => ({ ...move, score: scoreMove(move) }))
+        .sort((a, b) => b.score - a.score)[0];
+    }
+
+    function playBotTurn() {
+      botState.thinking = false;
+      botState.timer = 0;
+      if (!isBotTurn()) {
+        return;
+      }
+
+      const player = currentPlayer();
+      const move = chooseBotMove(player);
+      if (!move) {
+        skipTurn();
+        return;
+      }
+
+      infoText.textContent = `${player.name} düşünüp hamlesini yaptı.`;
+      handleBoardAction(move.x, move.y);
+    }
+
+    function scheduleBotTurnIfNeeded() {
+      if (botState.timer) {
+        clearTimeout(botState.timer);
+        botState.timer = 0;
+      }
+      if (!isBotTurn()) {
+        botState.thinking = false;
+        return;
+      }
+
+      botState.thinking = true;
+      infoText.textContent = "Bot hamlesini düşünüyor...";
+      botState.timer = globalThis.setTimeout(playBotTurn, 650);
     }
 
     function isTileEmptyForUtility(x, y) {
@@ -3180,27 +3564,43 @@
       document.getElementById("p2powers").innerHTML = powerSummaryHTML(p2);
 
       registerWinnerIfNeeded();
+      updateShareResultButton();
 
       updateAbilityButton();
       updateSmartTip();
     }
 
     function restart() {
+      if (botState.timer) {
+        clearTimeout(botState.timer);
+        botState.timer = 0;
+      }
+      botState.thinking = false;
       game = newGameState();
       game.started = true;
       game.paused = false;
+      trackLocalStat("starts");
       setMenuVisible(false);
       setHelpVisible(false);
       pauseBtn.textContent = "Duraklat";
       lastLoggedInfo = "";
       resetCombatLog();
       infoText.textContent = "Maç başladı. Bu tur hareket ya da yetenek seç.";
+      updateShareResultButton();
+      updateMatchSummary();
       render();
+      scheduleBotTurnIfNeeded();
     }
 
     function returnToStartMenu() {
       closeOnlineConnection();
       onlineState.enabled = false;
+      botState.enabled = false;
+      botState.thinking = false;
+      if (botState.timer) {
+        clearTimeout(botState.timer);
+        botState.timer = 0;
+      }
       setNetworkStatus(defaultNetworkStatusText());
       game = newGameState();
       game.started = false;
@@ -3211,6 +3611,8 @@
       lastLoggedInfo = "";
       resetCombatLog();
       infoText.textContent = "Oyununu seç ve yeşil karelere hareket et.";
+      updateShareResultButton();
+      updateMatchSummary();
       render();
     }
 
@@ -3221,6 +3623,7 @@
       game.paused = !game.paused;
       pauseBtn.textContent = game.paused ? "Devam Et" : "Duraklat";
       render();
+      scheduleBotTurnIfNeeded();
     }
 
     function handleMove(player, x, y) {
@@ -3396,6 +3799,11 @@
       playSound("button");
       setHelpVisible(true);
     });
+    shareResultBtn.addEventListener("click", () => {
+      ensureAudioContext();
+      playSound("button");
+      shareResult();
+    });
     closeHelpBtn.addEventListener("click", () => {
       ensureAudioContext();
       playSound("button");
@@ -3459,7 +3867,10 @@
     setHelpVisible(false);
     updateAccessibilityButtons();
     updateWinCounter();
+    trackLocalStat("visits");
     game = newGameState();
+    updateShareResultButton();
+    updateMatchSummary();
     requestAnimationFrame(gameLoop);
   </script>
 </body>
